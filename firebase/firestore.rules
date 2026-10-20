@@ -1,0 +1,58 @@
+rules_version = '2';
+
+// EmptyHands — paste this into Firebase console → Firestore Database → Rules
+// (or deploy it with `firebase deploy --only firestore:rules`).
+// OWNERS must match OWNER_EMAILS in js/config.js (in both repositories).
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function OWNERS() { return ['info@emptyhands.co.uk']; }
+
+    function signedIn() { return request.auth != null; }
+    function email() { return request.auth.token.email.lower(); }
+    function coachList() {
+      return exists(/databases/$(database)/documents/settings/coaches)
+        ? get(/databases/$(database)/documents/settings/coaches).data.emails : [];
+    }
+    function isCoach() {
+      return signedIn() && request.auth.token.email_verified == true
+        && (email() in OWNERS() || email() in coachList());
+    }
+    function isStudent() {
+      return signedIn() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'student';
+    }
+
+    // Student profiles. Students create and edit their own; they can't change their role.
+    match /users/{uid} {
+      allow read: if signedIn() && (request.auth.uid == uid || isCoach());
+      allow create: if signedIn() && request.auth.uid == uid
+        && request.resource.data.role == 'student'
+        && request.resource.data.name is string && request.resource.data.name.size() <= 120;
+      allow update: if isCoach()
+        || (signedIn() && request.auth.uid == uid && request.resource.data.role == resource.data.role
+            && request.resource.data.get('pushTokens', []).size() <= 20);
+      allow delete: if isCoach() || (signedIn() && request.auth.uid == uid);
+    }
+
+    // Notices: registered students read, coaches write.
+    match /notifications/{id} {
+      allow read: if isStudent() || isCoach();
+      allow create, update: if isCoach()
+        && request.resource.data.title is string && request.resource.data.title.size() <= 120
+        && request.resource.data.body is string && request.resource.data.body.size() <= 4000;
+      allow delete: if isCoach();
+    }
+
+    // Yearly calendars: public to read, coaches publish.
+    match /calendars/{year} {
+      allow read: if true;
+      allow write: if isCoach();
+    }
+
+    // Coach list: coaches manage it.
+    match /settings/coaches {
+      allow read: if signedIn();
+      allow write: if isCoach();
+    }
+  }
+}

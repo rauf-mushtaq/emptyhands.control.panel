@@ -1,0 +1,11 @@
+{
+  "name": "emptyhands-functions",
+  "private": true,
+  "description": "Sends a push notification to students' phones when a coach posts a notice.",
+  "main": "index.js",
+  "engines": { "node": "22" },
+  "dependencies": {
+    "firebase-admin": "^13.5.0",
+    "firebase-functions": "^6.4.0"
+  }
+}

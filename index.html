@@ -1,0 +1,190 @@
+<!doctype html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>EmptyHands · Coach panel</title>
+<meta name="robots" content="noindex">
+<meta name="theme-color" content="#14120f">
+<link rel="icon" href="assets/img/favicon.png" type="image/png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Karla:wght@400;500;700&family=Shippori+Mincho:wght@500;600;700&display=swap">
+<link rel="stylesheet" href="app.css">
+</head>
+<body class="coach">
+<div class="demo-banner" id="demo-banner" hidden>Demo mode — data is saved in this browser only. Any account made here is a coach. See the README to go live.</div>
+
+<header class="app-top app-top--dark">
+  <a class="app-brand" href="https://rauf-mushtaq.github.io/emptyhands/" aria-label="EmptyHands website"><img src="assets/img/logo-light.png" alt="EmptyHands KaraTe School" width="597" height="399"></a>
+  <span class="app-title">Coach panel</span>
+  <nav class="coach-tabs" id="coach-tabs" aria-label="Coach panel" hidden>
+    <button data-go="notices" aria-current="page">Notices</button>
+    <button data-go="students">Students <span class="count" id="student-count"></span></button>
+    <button data-go="calendar">Calendar</button>
+    <button data-go="coaches">Coaches</button>
+  </nav>
+  <button class="btn btn--ghost btn--sm btn--light" id="signout" hidden>Sign out</button>
+</header>
+
+<div class="loading" id="loading"><span class="spinner"></span></div>
+
+<main class="app-main app-main--wide">
+
+  <section class="view auth" id="view-auth" hidden>
+    <div class="auth-card">
+      <div class="auth-kanji" aria-hidden="true">指導</div>
+      <h1>Coach panel</h1>
+      <p class="muted">Send notices to your students and keep the dojo calendar up to date.</p>
+      <div class="seg" role="tablist">
+        <button type="button" role="tab" aria-selected="true" data-auth="signin">Sign in</button>
+        <button type="button" role="tab" aria-selected="false" data-auth="signup">New coach account</button>
+      </div>
+      <form id="form-auth" class="stack" novalidate>
+        <label class="only-signup" hidden>Your name <small>(shown on notices)</small><input name="name" autocomplete="name"></label>
+        <label>Email<input type="email" name="email" autocomplete="email" required></label>
+        <label>Password<input type="password" name="password" autocomplete="current-password" required></label>
+        <p class="form-error" hidden></p>
+        <button class="btn btn--seal btn--block" type="submit">Sign in</button>
+        <button class="linkish" type="button" id="forgot">Forgotten your password?</button>
+      </form>
+      <p class="fine">Only emails on the coach list can open this panel. <a id="student-app-link" href="https://rauf-mushtaq.github.io/emptyhands.student/">Student app →</a></p>
+    </div>
+  </section>
+
+  <section class="view auth" id="view-denied" hidden>
+    <div class="auth-card">
+      <h1>Not a coach account yet</h1>
+      <p id="denied-why"></p>
+      <div class="stack">
+        <button class="btn btn--seal btn--block" id="recheck">I’ve verified — check again</button>
+        <button class="btn btn--ghost btn--block" id="resend">Resend verification email</button>
+        <button class="btn btn--ghost btn--block" id="denied-signout">Sign out</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- Notices -->
+  <section class="view" id="view-notices" hidden>
+    <div class="coach-cols">
+      <form class="card stack" id="form-notice" novalidate>
+        <h2>Send a notice</h2>
+        <label>Send to<select name="audience" id="audience"></select></label>
+        <label>Title<input name="title" maxlength="90" required placeholder="e.g. Grading this Saturday"></label>
+        <label>Message<textarea name="body" rows="6" maxlength="2000" required placeholder="What do students need to know?"></textarea></label>
+        <label>Signed<input name="from" maxlength="60" placeholder="e.g. Azeem Sensei"></label>
+        <p class="muted fine" id="reach"></p>
+        <p class="form-error" hidden></p>
+        <button class="btn btn--seal" type="submit">Send notice</button>
+      </form>
+      <div>
+        <div class="card-head"><h2>Sent notices</h2></div>
+        <div id="sent-list"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Students -->
+  <section class="view" id="view-students" hidden>
+    <div class="view-head">
+      <div><p class="eyebrow">Registered students</p><h1 id="students-title">Students</h1></div>
+      <div class="view-actions">
+        <button class="btn btn--ghost btn--sm" id="refresh-students">Refresh</button>
+        <button class="btn btn--ghost btn--sm" id="export-students">Download CSV</button>
+      </div>
+    </div>
+    <div class="filters">
+      <input type="search" id="student-search" placeholder="Search name, email, phone…" aria-label="Search students">
+      <select id="student-filter" aria-label="Filter students"></select>
+    </div>
+    <div class="table-wrap">
+      <table class="students">
+        <thead><tr><th>Name</th><th>Classes</th><th>Dojo</th><th>Grade</th><th>Contact</th><th>Joined</th><th><span class="sr-only">Actions</span></th></tr></thead>
+        <tbody id="student-rows"></tbody>
+      </table>
+    </div>
+    <p class="muted" id="students-empty" hidden>No students yet. Share the student app link: <a id="student-link" href="https://rauf-mushtaq.github.io/emptyhands.student/"></a></p>
+  </section>
+
+  <!-- Calendar editor -->
+  <section class="view" id="view-calendar" hidden>
+    <div class="view-head">
+      <div><p class="eyebrow">Calendar editor</p><h1><span id="ed-year"></span> calendar <span class="pill" id="ed-status"></span></h1></div>
+      <div class="view-actions">
+        <label class="sr-only" for="ed-year-select">Year</label>
+        <select id="ed-year-select"></select>
+        <button class="btn btn--ghost btn--sm" id="new-year">New year…</button>
+        <button class="btn btn--seal btn--sm" id="publish" disabled>Publish</button>
+      </div>
+    </div>
+    <div class="brushes" role="radiogroup" aria-label="What a click marks">
+      <span class="brush-label">Click dates to mark:</span>
+      <label class="brush"><input type="radio" name="brush" value="training" checked><span class="swatch t-training"></span>Training</label>
+      <label class="brush"><input type="radio" name="brush" value="closed"><span class="swatch t-closed"></span>Closed</label>
+      <label class="brush"><input type="radio" name="brush" value="blackbelt"><span class="swatch t-blackbelt"></span>Black belt</label>
+      <label class="brush"><input type="radio" name="brush" value="grading"><span class="swatch t-grading"></span>Grading / workshop</label>
+      <label class="brush"><input type="radio" name="brush" value="note"><span class="swatch t-note"></span>Add note</label>
+      <label class="brush"><input type="radio" name="brush" value="clear"><span class="swatch t-clear"></span>Clear</label>
+    </div>
+    <p class="muted fine">Clicking a date already marked the same way clears it. Changes go live for students when you press <b>Publish</b>.</p>
+    <div class="legend" id="ed-legend"></div>
+    <div class="cal-year cal-year--edit" id="ed-grid"></div>
+    <div class="coach-cols">
+      <div class="card stack">
+        <h2>Class times</h2>
+        <label>One line per row (rows in CAPITALS show as headings)<textarea id="ed-timings" rows="9"></textarea></label>
+      </div>
+      <div class="card stack">
+        <h2>PDF version <small>(optional)</small></h2>
+        <label>Link to a printable calendar<input id="ed-pdf" placeholder="https://rauf-mushtaq.github.io/emptyhands.student/assets/docs/EmptyHands-Dojo-Calendar-2027.pdf"></label>
+        <h2>Bulk actions</h2>
+        <div class="row-actions">
+          <button class="btn btn--ghost btn--sm" id="fill-thursdays">Mark every empty Thursday as training</button>
+          <button class="btn btn--ghost btn--sm" id="clear-all">Clear whole year</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Coaches -->
+  <section class="view" id="view-coaches" hidden>
+    <p class="eyebrow">Access</p>
+    <h1>Coaches</h1>
+    <div class="coach-cols">
+      <div class="card stack">
+        <h2>Head coaches</h2>
+        <p class="muted fine">Set in <code>js/config.js</code> (in both repositories) and <code>firebase/firestore.rules</code>. They can always sign in here.</p>
+        <ul class="plain" id="owners"></ul>
+      </div>
+      <form class="card stack" id="form-coaches">
+        <h2>Coaches</h2>
+        <p class="muted fine">Anyone on this list can send notices, see students and edit the calendar once they create a coach account with that email and verify it.</p>
+        <ul class="plain" id="coach-list"></ul>
+        <div class="inline-form"><input type="email" name="email" placeholder="coach@example.com" aria-label="Coach email" required><button class="btn btn--sm" type="submit">Add coach</button></div>
+      </form>
+    </div>
+  </section>
+</main>
+
+<dialog id="note-dialog" class="sheet">
+  <form method="dialog" class="stack" id="form-note">
+    <p class="eyebrow" id="note-when"></p>
+    <h2>Note for this date</h2>
+    <label>Students see this when they tap the date<textarea name="note" rows="3" maxlength="200" placeholder="e.g. Kyu grading, Epping 12:30pm"></textarea></label>
+    <div class="row-actions"><button class="btn btn--seal" value="save">Save note</button><button class="btn btn--ghost" value="cancel" formnovalidate>Cancel</button></div>
+  </form>
+</dialog>
+
+<dialog id="year-dialog" class="sheet">
+  <form method="dialog" class="stack" id="form-year">
+    <h2>Start a new year</h2>
+    <label>Year<input name="year" type="number" min="2020" max="2100" required></label>
+    <label class="check"><input type="checkbox" name="thursdays" checked> Mark every Thursday as a training date</label>
+    <label class="check"><input type="checkbox" name="copyTimings" checked> Copy class times from the current year</label>
+    <div class="row-actions"><button class="btn btn--seal" value="create">Create draft</button><button class="btn btn--ghost" value="cancel" formnovalidate>Cancel</button></div>
+  </form>
+</dialog>
+
+<script type="module" src="js/coach.js"></script>
+</body>
+</html>
