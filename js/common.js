@@ -10,10 +10,19 @@ export const TYPES = {
 
 export const DISCIPLINES = { karate: 'Karate', taichi: 'Tai Chi', yoga: 'Yoga' };
 export const DOJOS = { ilford: 'Ilford', epping: 'Epping', both: 'Both dojos' };
+// Karate belts, lowest first. 'dan' (black belt) is what black-belt dates and notices check for.
 export const GRADES = {
-  none: 'No grade yet',
-  ...Object.fromEntries([10, 9, 8, 7, 6, 5, 4, 3, 2, 1].map(n => ['k' + n, n + ({ 1: 'st', 2: 'nd', 3: 'rd' }[n] || 'th') + ' Kyu'])),
-  dan: 'Black belt (Shodan or above)',
+  none: 'No belt',
+  red: 'Red belt',
+  orange: 'Orange belt',
+  yellow: 'Yellow belt',
+  green: 'Green belt',
+  purple: 'Purple belt',
+  purple1: 'Purple 1 stripe belt',
+  brown: 'Brown belt',
+  brown1: 'Brown 1 stripe belt',
+  brown2: 'Brown 2 stripe belt',
+  dan: 'Black belt',
 };
 export const AUDIENCES = {
   all: 'Everyone',

@@ -163,7 +163,7 @@ function drawStudents() {
     <td data-th="Name"><b>${esc(s.name)}</b>${s.guardian ? `<small>Parent: ${esc(s.guardian)}</small>` : ''}</td>
     <td data-th="Classes">${(s.disciplines || []).map(d => `<span class="tag">${DISCIPLINES[d] || esc(d)}</span>`).join(' ')}</td>
     <td data-th="Dojo">${DOJOS[s.dojo] || '—'}</td>
-    <td data-th="Grade">${GRADES[s.grade] || '—'}</td>
+    <td data-th="Belt">${GRADES[s.grade] || '—'}</td>
     <td data-th="Contact"><a href="mailto:${esc(s.email)}">${esc(s.email)}</a>${s.phone ? `<small><a href="tel:${esc(s.phone)}">${esc(s.phone)}</a></small>` : ''}</td>
     <td data-th="Joined">${s.createdAt ? new Date(s.createdAt).toLocaleDateString('en-GB') : '—'}</td>
     <td>${s.role === 'removed'
@@ -190,7 +190,7 @@ $('#student-rows').addEventListener('click', async e => {
   } catch (err) { toast(errorText(err), 'bad'); }
 });
 $('#export-students').addEventListener('click', () => {
-  const cols = ['name', 'guardian', 'email', 'phone', 'disciplines', 'dojo', 'grade', 'joined'];
+  const cols = ['name', 'guardian', 'email', 'phone', 'disciplines', 'dojo', 'belt', 'joined'];
   const cell = v => '"' + String(v ?? '').replace(/"/g, '""') + '"';
   const rows = filteredStudents().map(s => [s.name, s.guardian, s.email, s.phone, (s.disciplines || []).map(d => DISCIPLINES[d]).join('; '),
     DOJOS[s.dojo], GRADES[s.grade], s.createdAt ? new Date(s.createdAt).toISOString().slice(0, 10) : ''].map(cell).join(','));

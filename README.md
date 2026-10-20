@@ -54,7 +54,7 @@ Students see the new calendar straight away. They see the current year by defaul
 
 - Training and closure dates: everyone.
 - Gradings and workshops: students who ticked Karate.
-- Black-belt classes: students whose grade is Shodan or above.
+- Black-belt classes: students who chose Black belt.
 
 Notices follow the audience you chose when sending.
 
