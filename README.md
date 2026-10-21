@@ -48,7 +48,7 @@ firebase deploy --only functions,firestore:rules
 ## Each year
 
 1. **Calendar → New year…** → enter the year. Leave "mark every Thursday as training" ticked.
-2. Pick **Closed** and click the closure dates. Use **Black belt** for black-belt classes, **Grading / workshop** for gradings, and **Add note** to attach details (e.g. "Kyu grading 12:30pm").
+2. Pick **Closed** and click the closure dates. Use **Black belt** for black-belt classes, **Grading / workshop** for gradings, and **Add note** to attach details (e.g. "Kyu grading, Epping 12:30pm").
 3. Check the class times, add a link to the PDF if you have one, then press **Publish**.
 
 Students see the new calendar straight away. They see the current year by default and can switch years. Until 2026 has been published from the panel, students see the 2026 dates from the printed PDF, which are built into `js/calendar-data.js`.

@@ -14,6 +14,7 @@ function isFor(audience, p) {
   const a = audience || 'all';
   if (a === 'all') return true;
   if (DISCIPLINES.includes(a)) return (p.disciplines || []).includes(a);
+  if (a === 'ilford' || a === 'epping') return p.dojo === a || p.dojo === 'both';
   if (a === 'blackbelt') return p.grade === 'dan';
   return true;
 }

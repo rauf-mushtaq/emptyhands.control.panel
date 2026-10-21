@@ -1,7 +1,7 @@
 import { backend, DEMO, isCoach, errorText } from './backend.js';
 import { OWNER_EMAILS, STUDENT_URL } from './config.js';
 import {
-  $, $$, esc, GRADES, DISCIPLINES, AUDIENCES, renderYear, legendHTML, loadCalendar, calendarYears,
+  $, $$, esc, GRADES, DISCIPLINES, DOJOS, AUDIENCES, renderYear, legendHTML, loadCalendar, calendarYears,
   noticeIsFor, homeworkIsFor, longDate, shortDate, timeAgo, keyOf, download, toast, busy, messageHTML,
 } from './common.js';
 
@@ -136,7 +136,7 @@ function drawRequests() {
         <h3>${esc(r.name)}</h3>
         ${r.guardian ? `<p class="muted">Parent / guardian: ${esc(r.guardian)}</p>` : ''}
         <p>${(r.disciplines || []).map(d => `<span class="tag">${DISCIPLINES[d] || esc(d)}</span>`).join(' ')}
-          <span class="tag">${GRADES[r.grade] || '—'}</span></p>
+          <span class="tag">${DOJOS[r.dojo] || '—'}</span> <span class="tag">${GRADES[r.grade] || '—'}</span></p>
         <p class="fine"><a href="mailto:${esc(r.email)}">${esc(r.email)}</a>${r.phone ? ` · <a href="tel:${esc(r.phone)}">${esc(r.phone)}</a>` : ''} · asked ${r.createdAt ? timeAgo(r.createdAt) : ''}</p>
       </div>
       <div class="request-actions">
@@ -297,7 +297,7 @@ function openChat(uid) {
   const s = state.students.find(x => x.id === uid);
   state.open = uid;
   $('#chat-name').textContent = s ? s.name : 'Student';
-  $('#chat-sub').innerHTML = s ? [s.guardian && 'Parent: ' + esc(s.guardian), (s.disciplines || []).map(d => DISCIPLINES[d]).join(', '), GRADES[s.grade]].filter(Boolean).join(' · ') : '';
+  $('#chat-sub').innerHTML = s ? [s.guardian && 'Parent: ' + esc(s.guardian), (s.disciplines || []).map(d => DISCIPLINES[d]).join(', '), DOJOS[s.dojo], GRADES[s.grade]].filter(Boolean).join(' · ') : '';
   $('#chat-empty').hidden = true;
   $('#chat-open').hidden = false;
   $('#menu-layout').classList.add('is-open');
@@ -415,13 +415,14 @@ function drawStudents() {
   $('#student-rows').innerHTML = list.map(s => `<tr>
     <td data-th="Name"><b>${esc(s.name)}</b>${s.guardian ? `<small>Parent: ${esc(s.guardian)}</small>` : ''}</td>
     <td data-th="Classes">${(s.disciplines || []).map(d => `<span class="tag">${DISCIPLINES[d] || esc(d)}</span>`).join(' ')}</td>
+    <td data-th="Dojo">${DOJOS[s.dojo] || '—'}</td>
     <td data-th="Belt">${GRADES[s.grade] || '—'}</td>
     <td data-th="Contact"><a href="mailto:${esc(s.email)}">${esc(s.email)}</a>${s.phone ? `<small><a href="tel:${esc(s.phone)}">${esc(s.phone)}</a></small>` : ''}</td>
     <td data-th="Joined">${s.createdAt ? new Date(s.createdAt).toLocaleDateString('en-GB') : '—'}</td>
     <td>${s.role !== 'student'
       ? `<button class="linkish" data-restore="${esc(s.id)}">${s.role === 'declined' ? 'Accept' : 'Restore'}</button>`
       : `<button class="linkish danger" data-remove="${esc(s.id)}">Remove</button>`}</td>
-  </tr>`).join('') || (state.students.length ? '<tr><td colspan="6" class="muted">No students match.</td></tr>' : '');
+  </tr>`).join('') || (state.students.length ? '<tr><td colspan="7" class="muted">No students match.</td></tr>' : '');
 }
 $('#student-search').addEventListener('input', drawStudents);
 $('#student-filter').addEventListener('change', drawStudents);
@@ -443,10 +444,10 @@ $('#student-rows').addEventListener('click', async e => {
   } catch (err) { toast(errorText(err), 'bad'); }
 });
 $('#export-students').addEventListener('click', () => {
-  const cols = ['name', 'guardian', 'email', 'phone', 'disciplines', 'belt', 'joined'];
+  const cols = ['name', 'guardian', 'email', 'phone', 'disciplines', 'dojo', 'belt', 'joined'];
   const cell = v => '"' + String(v ?? '').replace(/"/g, '""') + '"';
   const rows = filteredStudents().map(s => [s.name, s.guardian, s.email, s.phone, (s.disciplines || []).map(d => DISCIPLINES[d]).join('; '),
-    GRADES[s.grade], s.createdAt ? new Date(s.createdAt).toISOString().slice(0, 10) : ''].map(cell).join(','));
+    DOJOS[s.dojo], GRADES[s.grade], s.createdAt ? new Date(s.createdAt).toISOString().slice(0, 10) : ''].map(cell).join(','));
   download('emptyhands-students.csv', [cols.join(','), ...rows].join('\r\n'), 'text/csv');
 });
 

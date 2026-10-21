@@ -4,11 +4,12 @@ import { CALENDAR_2026 } from './calendar-data.js';
 export const TYPES = {
   training: { label: 'Dojo training', note: 'Thursday classes at the Ilford dojo' },
   closed: { label: 'Dojo closed', note: 'No classes on this date' },
-  blackbelt: { label: 'Black belt class', note: 'Invite only' },
+  blackbelt: { label: 'Black belt class', note: 'Invite only — Epping dojo' },
   grading: { label: 'Grading & workshop', note: 'Grading or workshop date' },
 };
 
 export const DISCIPLINES = { karate: 'Karate', taichi: 'Tai Chi', yoga: 'Yoga' };
+export const DOJOS = { ilford: 'Ilford', epping: 'Epping', both: 'Both dojos' };
 // Karate belts, lowest first. 'dan' (black belt) is what black-belt dates and notices check for.
 export const GRADES = {
   none: 'No belt',
@@ -28,6 +29,8 @@ export const AUDIENCES = {
   karate: 'Karate students',
   taichi: 'Tai Chi students',
   yoga: 'Yoga students',
+  ilford: 'Ilford dojo students',
+  epping: 'Epping dojo students',
   blackbelt: 'Black belts',
 };
 
@@ -82,6 +85,7 @@ export function noticeIsFor(n, p) {
   const a = n.audience || 'all';
   if (a === 'all' || !p) return true;
   if (DISCIPLINES[a]) return (p.disciplines || []).includes(a);
+  if (a === 'ilford' || a === 'epping') return p.dojo === a || p.dojo === 'both';
   if (a === 'blackbelt') return p.grade === 'dan';
   return true;
 }
