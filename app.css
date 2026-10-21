@@ -470,3 +470,9 @@ button.app-user[aria-current] { background: var(--ink); color: var(--paper); }
 .paid-tracker { margin-bottom: 16px; }
 .paid-tracker .card-head { margin-top: 0; flex-wrap: wrap; }
 .paid-tracker h3 { margin-top: 14px; font-size: 1rem; }
+
+/* Whole fee card is the PayPal link */
+.fee--link { text-decoration: none; color: inherit; cursor: pointer; transition: border-color .15s, box-shadow .15s, transform .1s; }
+.fee--link:hover { border-color: #f0b52a; box-shadow: 0 6px 18px -10px rgba(0, 0, 0, .35); }
+.fee--link:active { transform: scale(.99); }
+.fee--link .btn--paypal { pointer-events: none; }

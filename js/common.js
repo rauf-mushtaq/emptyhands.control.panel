@@ -102,12 +102,15 @@ export const money = n => '£' + (Math.round(n * 100) / 100).toFixed(n % 1 ? 2 :
 // A PayPal "Buy now" link (PayPal Payments Standard). `paypal` is the business account's email
 // or merchant ID; the student's name goes in the item name so Sensei can see who paid.
 // With `track` ({ uid, notifyUrl }), PayPal also tells our paypalIpn function about the payment,
-// which records it for that student (custom = uid|fee id|month).
-export function paypalLink(paypal, fee, who, track) {
+// which records it for that student (custom = uid|fee id|month). `back` is where PayPal returns
+// people afterwards. landing_page=billing opens PayPal on its card form, so no PayPal account is needed.
+export function paypalLink(paypal, fee, who, track, back) {
   const q = new URLSearchParams({
     cmd: '_xclick', business: paypal, item_name: fee.name + (who ? ' — ' + who : ''),
-    amount: Number(fee.price).toFixed(2), currency_code: 'GBP', no_shipping: '1',
+    amount: Number(fee.price).toFixed(2), currency_code: 'GBP', no_shipping: '1', no_note: '1',
+    landing_page: 'billing', solution_type: 'Sole',
   });
+  if (back) { q.set('return', back + '#pay'); q.set('cancel_return', back + '#pay'); q.set('rm', '1'); q.set('cbt', 'Back to EmptyHands'); }
   if (track) { q.set('custom', [track.uid, fee.id, monthKey()].join('|')); q.set('notify_url', track.notifyUrl); }
   return 'https://www.paypal.com/cgi-bin/webscr?' + q;
 }
