@@ -69,7 +69,26 @@ async function firebaseBackend() {
     deleteProfile: uid => F.deleteDoc(ref('users', uid)),
     addPushToken: (uid, token) => F.updateDoc(ref('users', uid), { pushTokens: F.arrayUnion(token) }),
     removePushToken: (uid, token) => F.updateDoc(ref('users', uid), { pushTokens: F.arrayRemove(token) }),
-    listStudents: async () => rows(await F.getDocs(F.query(F.collection(db, 'users'), F.where('role', 'in', ['student', 'removed'])))),
+    listStudents: async () => rows(await F.getDocs(F.query(F.collection(db, 'users'), F.where('role', 'in', ['student', 'removed', 'declined'])))),
+    watchProfile: (uid, cb) => F.onSnapshot(ref('users', uid), s => cb(s.exists() ? s.data() : null), err => console.error(err)),
+    watchRequests: cb => F.onSnapshot(F.query(F.collection(db, 'users'), F.where('role', '==', 'pending')),
+      snap => cb(rows(snap)), err => console.error(err)),
+
+    // EmptyHands menu: one private thread per student, shared by all coaches.
+    // chats/{uid} holds a summary (for the coach's list and unread counts); messages live under it.
+    watchChats: cb => F.onSnapshot(F.query(F.collection(db, 'chats'), F.orderBy('lastAt', 'desc'), F.limit(500)),
+      snap => cb(rows(snap)), err => console.error(err)),
+    watchChat: (uid, cb) => F.onSnapshot(ref('chats', uid), s => cb(s.exists() ? s.data() : null), err => console.error(err)),
+    watchThread: (uid, cb) => F.onSnapshot(
+      F.query(F.collection(db, 'chats', uid, 'messages'), F.orderBy('createdAt'), F.limitToLast(300)),
+      snap => cb(rows(snap).map(m => ({ ...m, createdAt: millis(m.createdAt) }))),
+      err => console.error(err)),
+    sendMessage: async (uid, studentName, m) => {
+      const now = Date.now();
+      await F.addDoc(F.collection(db, 'chats', uid, 'messages'), { ...m, createdAt: F.serverTimestamp() });
+      await F.setDoc(ref('chats', uid), { name: studentName, lastAt: now, lastFrom: m.from, lastText: m.text.slice(0, 140), [m.from + 'ReadAt']: now }, { merge: true });
+    },
+    markChatRead: (uid, who) => F.setDoc(ref('chats', uid), { [who + 'ReadAt']: Date.now() }, { merge: true }),
 
     watchNotifications: cb => F.onSnapshot(
       F.query(F.collection(db, 'notifications'), F.orderBy('createdAt', 'desc'), F.limit(200)),
@@ -104,13 +123,25 @@ function demoBackend() {
   const notes = () => load('notifications', []).sort((a, b) => b.createdAt - a.createdAt);
   const emitAuth = () => { const u = me(); authCbs.forEach(cb => cb(u)); };
   const emitNotes = () => { const n = notes(); noteCbs.forEach(cb => cb(n)); };
+  // Generic live queries: watch(key, read, cb) re-runs read() whenever that key changes, here or in another tab.
+  const subs = new Map();
+  const emit = k => (subs.get(k) || []).forEach(fn => fn());
+  const watch = (k, read, cb) => {
+    const fn = () => cb(read());
+    if (!subs.has(k)) subs.set(k, new Set());
+    subs.get(k).add(fn); setTimeout(fn);
+    return () => subs.get(k).delete(fn);
+  };
   addEventListener('storage', e => {
     if (e.key === K + 'notifications') emitNotes();
     if (e.key === K + 'session') emitAuth();
+    if (e.key && e.key.startsWith(K)) emit(e.key.slice(K.length));
   });
-  const table = name => ({ all: () => load(name, {}), put: (id, v) => { const t = load(name, {}); t[id] = v; store(name, t); }, del: id => { const t = load(name, {}); delete t[id]; store(name, t); } });
+  const save = (k, v) => { store(k, v); emit(k); };
+  const table = name => ({ all: () => load(name, {}), put: (id, v) => { const t = load(name, {}); t[id] = v; save(name, t); }, del: id => { const t = load(name, {}); delete t[id]; save(name, t); } });
   const users = table('users');
   const cals = table('calendars');
+  const chats = table('chats');
 
   return {
     // Accounts made on the coach page are coaches in demo mode.
@@ -150,7 +181,19 @@ function demoBackend() {
     deleteProfile: async uid => users.del(uid),
     addPushToken: async () => {},
     removePushToken: async () => {},
-    listStudents: async () => Object.entries(users.all()).map(([id, u]) => ({ id, ...u })).filter(u => u.role === 'student' || u.role === 'removed'),
+    listStudents: async () => Object.entries(users.all()).map(([id, u]) => ({ id, ...u })).filter(u => ['student', 'removed', 'declined'].includes(u.role)),
+    watchProfile: (uid, cb) => watch('users', () => users.all()[uid] || null, cb),
+    watchRequests: cb => watch('users', () => Object.entries(users.all()).map(([id, u]) => ({ id, ...u })).filter(u => u.role === 'pending'), cb),
+
+    watchChats: cb => watch('chats', () => Object.entries(chats.all()).map(([id, c]) => ({ id, ...c })).sort((a, b) => b.lastAt - a.lastAt), cb),
+    watchChat: (uid, cb) => watch('chats', () => chats.all()[uid] || null, cb),
+    watchThread: (uid, cb) => watch('msgs:' + uid, () => load('msgs:' + uid, []), cb),
+    sendMessage: async (uid, studentName, m) => {
+      const now = Date.now();
+      save('msgs:' + uid, [...load('msgs:' + uid, []), { ...m, id: 'm' + now.toString(36) + Math.random().toString(36).slice(2, 5), createdAt: now }]);
+      chats.put(uid, { ...(chats.all()[uid] || {}), name: studentName, lastAt: now, lastFrom: m.from, lastText: m.text.slice(0, 140), [m.from + 'ReadAt']: now });
+    },
+    markChatRead: async (uid, who) => chats.put(uid, { ...(chats.all()[uid] || {}), [who + 'ReadAt']: Date.now() }),
 
     watchNotifications: cb => { noteCbs.add(cb); setTimeout(() => cb(notes())); return () => noteCbs.delete(cb); },
     addNotification: async n => {

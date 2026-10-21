@@ -2,11 +2,11 @@ import { backend, DEMO, isCoach, errorText } from './backend.js';
 import { OWNER_EMAILS, STUDENT_URL } from './config.js';
 import {
   $, $$, esc, GRADES, DISCIPLINES, DOJOS, AUDIENCES, renderYear, legendHTML, loadCalendar, calendarYears,
-  noticeIsFor, longDate, timeAgo, keyOf, download, toast, busy,
+  noticeIsFor, longDate, timeAgo, keyOf, download, toast, busy, messageHTML,
 } from './common.js';
 
 let api;
-const state = { user: null, students: [], notices: [], view: 'notices', stopNotices: null };
+const state = { user: null, students: [], notices: [], requests: null, chats: [], open: null, thread: [], view: 'requests', stops: [], stopThread: null };
 const ed = { year: new Date().getFullYear(), days: {}, timings: [], pdf: '', dirty: false, published: false };
 const NAME_KEY = 'eh-coach-name';
 const savedName = () => { try { return localStorage.getItem(NAME_KEY) || ''; } catch { return ''; } };
@@ -21,10 +21,12 @@ function show(id) {
   $('#signout').hidden = !inside;
   $$('#coach-tabs button').forEach(b => b.toggleAttribute('aria-current', b.dataset.go === id));
   if (inside) state.view = id;
+  if (id === 'menu') { drawChatList(); if (state.open) markOpenRead(); }
 }
 $('#coach-tabs').addEventListener('click', e => {
   const b = e.target.closest('[data-go]');
   if (!b) return;
+  state.autoStart = false;
   show(b.dataset.go);
   history.replaceState(null, '', '#' + b.dataset.go);
   if (b.dataset.go === 'students') loadStudents();
@@ -73,7 +75,10 @@ $('#resend').addEventListener('click', async () => {
 $('#recheck').addEventListener('click', async () => onAuth(await api.reloadUser()));
 
 async function onAuth(user) {
-  if (state.stopNotices) { state.stopNotices(); state.stopNotices = null; }
+  state.stops.forEach(stop => stop && stop());
+  state.stops = [];
+  closeChat();
+  state.requests = null;
   state.user = user;
   if (!user) { show('auth'); return; }
   if (!(await isCoach(user))) {
@@ -86,13 +91,153 @@ async function onAuth(user) {
     return;
   }
   $('[name=from]').value = savedName();
-  state.stopNotices = api.watchNotifications(list => { state.notices = list; drawSent(); });
+  $('#reply-from').value = savedName();
+  state.stops.push(api.watchNotifications(list => { state.notices = list; drawSent(); }));
+  state.stops.push(api.watchRequests(onRequests));
+  state.stops.push(api.watchChats(list => { state.chats = list; drawChatList(); drawMenuCount(); }));
   await loadStudents();
   await loadYear(ed.year);
   const start = location.hash.slice(1);
-  show(['notices', 'students', 'calendar', 'coaches'].includes(start) ? start : 'notices');
+  const chosen = ['requests', 'menu', 'notices', 'students', 'calendar', 'coaches'].includes(start);
+  show(chosen ? start : (state.requests || []).length ? 'requests' : 'menu');
+  // The request list may load after this; if there are requests waiting, open on them.
+  state.autoStart = !chosen;
   if (start === 'coaches') drawCoaches();
 }
+
+// ---- join requests ----
+function onRequests(list) {
+  const before = state.requests;
+  state.requests = list.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+  if (!before && list.length && state.autoStart && state.view === 'menu') show('requests');
+  if (before) {
+    list.filter(r => !before.some(x => x.id === r.id)).forEach(r => {
+      toast('New join request: ' + r.name);
+      if ('Notification' in window && Notification.permission === 'granted') {
+        try { new Notification('New join request', { body: r.name + ' wants to join EmptyHands', tag: 'req-' + r.id }); } catch { /* not allowed here */ }
+      }
+    });
+  }
+  $('#request-count').textContent = list.length || '';
+  document.title = (list.length ? `(${list.length}) ` : '') + 'EmptyHands · Coach panel';
+  drawRequests();
+}
+function drawRequests() {
+  const list = state.requests || [];
+  $('#coach-alerts').hidden = !('Notification' in window) || Notification.permission !== 'default';
+  $('#request-list').innerHTML = list.length ? list.map(r => `
+    <article class="card request">
+      <div class="request-main">
+        <h3>${esc(r.name)}</h3>
+        ${r.guardian ? `<p class="muted">Parent / guardian: ${esc(r.guardian)}</p>` : ''}
+        <p>${(r.disciplines || []).map(d => `<span class="tag">${DISCIPLINES[d] || esc(d)}</span>`).join(' ')}
+          <span class="tag">${DOJOS[r.dojo] || '—'}</span> <span class="tag">${GRADES[r.grade] || '—'}</span></p>
+        <p class="fine"><a href="mailto:${esc(r.email)}">${esc(r.email)}</a>${r.phone ? ` · <a href="tel:${esc(r.phone)}">${esc(r.phone)}</a>` : ''} · asked ${r.createdAt ? timeAgo(r.createdAt) : ''}</p>
+      </div>
+      <div class="request-actions">
+        <button class="btn btn--seal btn--sm" data-accept="${esc(r.id)}">Accept</button>
+        <button class="btn btn--ghost btn--sm" data-decline="${esc(r.id)}">Decline</button>
+      </div>
+    </article>`).join('') : '<div class="empty"><span aria-hidden="true">迎</span><p>No requests waiting. New student sign-ups will appear here.</p></div>';
+}
+$('#request-list').addEventListener('click', async e => {
+  const b = e.target.closest('[data-accept], [data-decline]');
+  if (!b) return;
+  const accept = 'accept' in b.dataset;
+  const uid = b.dataset.accept || b.dataset.decline;
+  const r = (state.requests || []).find(x => x.id === uid);
+  if (!accept && !confirm(`Decline ${r ? r.name : 'this request'}? They won’t be able to use the EmptyHands menu.`)) return;
+  await busy(b, async () => {
+    try {
+      await api.saveProfile(uid, accept ? { role: 'student', acceptedAt: Date.now() } : { role: 'declined' });
+      toast(accept ? `${r.name} accepted and added to the EmptyHands menu` : `${r.name}’s request declined`);
+      loadStudents();
+    } catch (err) { toast(errorText(err), 'bad'); }
+  });
+});
+$('#coach-alerts').addEventListener('click', async () => {
+  const res = await Notification.requestPermission();
+  toast(res === 'granted' ? 'Pop-up alerts on while this panel is open.' : 'Alerts are off. You can change this in your browser settings.');
+  drawRequests();
+});
+
+// ---- EmptyHands menu: private chat with each student's family ----
+const unreadChat = c => c && c.lastFrom === 'student' && (c.lastAt || 0) > (c.coachReadAt || 0);
+function drawMenuCount() {
+  const n = state.chats.filter(unreadChat).length;
+  $('#menu-count').textContent = n || '';
+}
+function drawChatList() {
+  const q = $('#chat-search').value.trim().toLowerCase();
+  const chats = Object.fromEntries(state.chats.map(c => [c.id, c]));
+  const people = state.students.filter(s => s.role === 'student')
+    .filter(s => !q || [s.name, s.guardian, s.email].some(v => (v || '').toLowerCase().includes(q)))
+    .map(s => ({ ...s, chat: chats[s.id] }))
+    .sort((a, b) => ((b.chat && b.chat.lastAt) || 0) - ((a.chat && a.chat.lastAt) || 0) || (a.name || '').localeCompare(b.name || ''));
+  $('#chat-list').innerHTML = people.length ? people.map(p => `
+    <li><button type="button" class="chat-item${unreadChat(p.chat) ? ' is-unread' : ''}${state.open === p.id ? ' is-open' : ''}" data-chat="${esc(p.id)}">
+      <b>${esc(p.name)}</b>${p.chat ? `<time>${timeAgo(p.chat.lastAt)}</time>` : ''}
+      <small>${p.chat ? (p.chat.lastFrom === 'coach' ? 'You: ' : '') + esc(p.chat.lastText) : esc(p.guardian ? 'Parent: ' + p.guardian : 'No messages yet')}</small>
+    </button></li>`).join('') : '<li class="muted fine">No accepted students yet.</li>';
+}
+$('#chat-search').addEventListener('input', drawChatList);
+$('#chat-list').addEventListener('click', e => {
+  const b = e.target.closest('[data-chat]');
+  if (b) openChat(b.dataset.chat);
+});
+$('#chat-back').addEventListener('click', closeChat);
+
+function openChat(uid) {
+  closeChat();
+  const s = state.students.find(x => x.id === uid);
+  state.open = uid;
+  $('#chat-name').textContent = s ? s.name : 'Student';
+  $('#chat-sub').innerHTML = s ? [s.guardian && 'Parent: ' + esc(s.guardian), (s.disciplines || []).map(d => DISCIPLINES[d]).join(', '), DOJOS[s.dojo], GRADES[s.grade]].filter(Boolean).join(' · ') : '';
+  $('#chat-empty').hidden = true;
+  $('#chat-open').hidden = false;
+  $('#menu-layout').classList.add('is-open');
+  state.stopThread = api.watchThread(uid, list => { state.thread = list; drawThread(); markOpenRead(); });
+  drawChatList();
+  $('#reply-text').focus();
+}
+function closeChat() {
+  if (state.stopThread) state.stopThread();
+  state.stopThread = null; state.open = null; state.thread = [];
+  $('#chat-open').hidden = true;
+  $('#chat-empty').hidden = false;
+  $('#menu-layout').classList.remove('is-open');
+  drawChatList();
+}
+function drawThread() {
+  const feed = $('#chat-feed');
+  feed.innerHTML = state.thread.length
+    ? state.thread.map(m => messageHTML(m, m.from === 'coach')).join('')
+    : '<p class="muted fine center">No messages yet. Say hello — the student and their family will see it in their EmptyHands menu.</p>';
+  feed.scrollTop = feed.scrollHeight;
+}
+function markOpenRead() {
+  const c = state.chats.find(x => x.id === state.open);
+  if (state.view === 'menu' && !document.hidden && unreadChat(c)) api.markChatRead(state.open, 'coach').catch(console.warn);
+}
+document.addEventListener('visibilitychange', () => { if (state.open) markOpenRead(); });
+
+const replyText = $('#reply-text');
+replyText.addEventListener('input', () => { replyText.style.height = 'auto'; replyText.style.height = Math.min(replyText.scrollHeight, 160) + 'px'; });
+replyText.addEventListener('keydown', e => { if (e.key === 'Enter' && !e.shiftKey && matchMedia('(pointer: fine)').matches) { e.preventDefault(); $('#form-reply').requestSubmit(); } });
+$('#form-reply').addEventListener('submit', async e => {
+  e.preventDefault();
+  const text = replyText.value.trim();
+  if (!text || !state.open) return;
+  const author = $('#reply-from').value.trim() || 'Coach';
+  const s = state.students.find(x => x.id === state.open);
+  await busy(e.target.querySelector('[type=submit]'), async () => {
+    try {
+      await api.sendMessage(state.open, s ? s.name : '', { text, from: 'coach', author, uid: state.user.uid });
+      try { localStorage.setItem(NAME_KEY, author); } catch { /* storage blocked */ }
+      replyText.value = ''; replyText.style.height = 'auto';
+    } catch (err) { toast(errorText(err), 'bad'); }
+  });
+});
 
 // ---- notices ----
 $('#audience').innerHTML = Object.entries(AUDIENCES).map(([k, v]) => `<option value="${k}">${v}</option>`).join('');
@@ -137,7 +282,7 @@ $('#sent-list').addEventListener('click', async e => {
 // ---- students ----
 $('#student-filter').innerHTML = '<option value="all">All students</option>'
   + Object.entries(AUDIENCES).filter(([k]) => k !== 'all').map(([k, v]) => `<option value="${k}">${v}</option>`).join('')
-  + '<option value="removed">Removed</option>';
+  + '<option value="removed">Removed</option><option value="declined">Declined requests</option>';
 $('#student-link').href = $('#student-link').textContent = STUDENT_URL;
 
 async function loadStudents() {
@@ -147,11 +292,12 @@ async function loadStudents() {
   $('#student-count').textContent = active || '';
   drawStudents();
   drawReach();
+  drawChatList();
 }
 function filteredStudents() {
   const q = $('#student-search').value.trim().toLowerCase();
   const f = $('#student-filter').value;
-  return state.students.filter(s => (f === 'removed' ? s.role === 'removed' : s.role === 'student' && noticeIsFor({ audience: f }, s))
+  return state.students.filter(s => (f === 'removed' || f === 'declined' ? s.role === f : s.role === 'student' && noticeIsFor({ audience: f }, s))
     && (!q || [s.name, s.email, s.phone, s.guardian].some(v => (v || '').toLowerCase().includes(q))));
 }
 function drawStudents() {
@@ -166,8 +312,8 @@ function drawStudents() {
     <td data-th="Belt">${GRADES[s.grade] || '—'}</td>
     <td data-th="Contact"><a href="mailto:${esc(s.email)}">${esc(s.email)}</a>${s.phone ? `<small><a href="tel:${esc(s.phone)}">${esc(s.phone)}</a></small>` : ''}</td>
     <td data-th="Joined">${s.createdAt ? new Date(s.createdAt).toLocaleDateString('en-GB') : '—'}</td>
-    <td>${s.role === 'removed'
-      ? `<button class="linkish" data-restore="${esc(s.id)}">Restore</button>`
+    <td>${s.role !== 'student'
+      ? `<button class="linkish" data-restore="${esc(s.id)}">${s.role === 'declined' ? 'Accept' : 'Restore'}</button>`
       : `<button class="linkish danger" data-remove="${esc(s.id)}">Remove</button>`}</td>
   </tr>`).join('') || (state.students.length ? '<tr><td colspan="7" class="muted">No students match.</td></tr>' : '');
 }
@@ -181,11 +327,12 @@ $('#student-rows').addEventListener('click', async e => {
   if (!id) return;
   const uid = id.remove || id.restore;
   const s = state.students.find(x => x.id === uid);
-  if (rm && !confirm(`Remove ${s.name}? They will no longer see notices or the calendar in the app.`)) return;
+  if (rm && !confirm(`Remove ${s.name}? They will no longer see notices or messages in the app.`)) return;
+  const was = s.role;
   try {
     await api.saveProfile(uid, { role: rm ? 'removed' : 'student' });
     s.role = rm ? 'removed' : 'student';
-    toast(rm ? s.name + ' removed' : s.name + ' restored');
+    toast(rm ? s.name + ' removed' : s.name + (was === 'declined' ? ' accepted' : ' restored'));
     loadStudents();
   } catch (err) { toast(errorText(err), 'bad'); }
 });

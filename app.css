@@ -164,6 +164,44 @@ legend { font-weight: 700; font-size: .9rem; margin-bottom: 6px; }
 .notice footer { display: flex; justify-content: space-between; align-items: center; margin-top: 8px; font-size: .88rem; color: var(--ink-3); font-style: italic; }
 .notice footer .linkish { font-style: normal; }
 
+/* Coach notices are bold everywhere students see them. */
+.notice--coach h3, .notice--coach p { font-weight: 700; color: var(--ink); }
+
+/* EmptyHands menu: chat */
+.chat-intro { margin-bottom: 10px; }
+.chat-feed { display: flex; flex-direction: column; gap: 10px; padding-bottom: 8px; }
+.chat-feed .notice { margin: 4px 0; }
+.msg { max-width: min(82%, 560px); align-self: flex-start; }
+.msg--mine { align-self: flex-end; text-align: right; }
+.msg-meta { font-size: .76rem; color: var(--ink-3); margin: 0 6px 3px; }
+.msg-text { display: inline-block; text-align: left; padding: 10px 14px; border-radius: 16px 16px 16px 4px; background: var(--card); border: 1px solid var(--line); overflow-wrap: anywhere; }
+.msg--mine .msg-text { border-radius: 16px 16px 4px 16px; background: var(--ink); color: var(--paper); border-color: var(--ink); }
+.msg--coach .msg-text { font-weight: 700; }
+.msg--coach:not(.msg--mine) .msg-text { border-left: 3px solid var(--seal); }
+.msg.is-new .msg-meta::before { content: "New · "; color: var(--seal); font-weight: 700; }
+.chat-compose {
+  position: sticky; bottom: calc(var(--tabbar-h) + env(safe-area-inset-bottom)); display: grid; gap: 6px;
+  background: var(--paper); padding: 10px 0; border-top: 1px solid var(--line);
+}
+.coach .chat-compose { bottom: 0; }
+.chat-row { display: flex; gap: 8px; align-items: flex-end; }
+.chat-row textarea { min-height: 46px; max-height: 160px; resize: none; }
+.chat-from { display: flex; align-items: center; gap: 8px; font-size: .82rem; }
+.chat-from select { width: auto; min-height: 34px; padding: 4px 8px; font-size: .9rem; }
+.pending-card { text-align: center; padding: 30px 20px; }
+.pending-kanji { font-family: var(--serif); font-size: 3rem; color: var(--bronze-2); line-height: 1; margin-bottom: 8px; }
+.pending-mini { font-size: .95rem; }
+
+/* Key dates under the calendar */
+.keydates { display: grid; gap: 14px; grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr)); margin-bottom: 18px; }
+.keydates-group h2 { display: flex; align-items: center; gap: 10px; font-size: 1.05rem; }
+.keydates-group h2 small { margin-left: auto; background: var(--paper-2); padding: 0 8px; border-radius: 99px; font-family: var(--sans); font-size: .8rem; }
+.keydates-group ul { list-style: none; margin: 0; padding: 0; }
+.keydates-group li { display: grid; grid-template-columns: 96px 1fr auto; gap: 10px; padding: 7px 0; border-top: 1px solid var(--line); font-size: .92rem; }
+.keydates-group li:first-child { border-top: 0; }
+.keydates-group li time { font-weight: 700; }
+.keydates-group li.is-past { opacity: .45; }
+
 /* Calendar */
 .legend { display: flex; flex-wrap: wrap; gap: 8px 18px; margin: 4px 0 12px; font-size: .9rem; }
 .legend-item { display: inline-flex; align-items: center; gap: 8px; }
@@ -298,3 +336,38 @@ table.students { width: 100%; border-collapse: collapse; font-size: .92rem; }
 ul.plain { list-style: none; margin: 0; padding: 0; }
 ul.plain li { display: flex; justify-content: space-between; gap: 10px; padding: 8px 0; border-top: 1px solid var(--line); overflow-wrap: anywhere; }
 ul.plain li:first-child { border-top: 0; }
+
+/* Coach panel: join requests */
+.requests { display: grid; gap: 12px; margin-top: 14px; }
+.request { display: flex; flex-wrap: wrap; gap: 14px; justify-content: space-between; align-items: center; border-left: 4px solid var(--seal); }
+.request h3 { margin-bottom: 2px; }
+.request p { margin: 4px 0; }
+.request-actions { display: flex; gap: 8px; }
+
+/* Coach panel: EmptyHands menu */
+.menu-layout { display: grid; gap: 16px; grid-template-columns: minmax(240px, 320px) 1fr; align-items: start; }
+.chat-list { padding: 10px; position: sticky; top: 76px; max-height: calc(100vh - 100px); overflow: auto; }
+.chat-list input { margin-bottom: 8px; }
+.chat-list ul { list-style: none; margin: 0; padding: 0; }
+.chat-item { display: grid; grid-template-columns: 1fr auto; gap: 2px 8px; width: 100%; text-align: left; border: 0; background: none; padding: 10px; border-radius: 8px; cursor: pointer; }
+.chat-item:hover { background: var(--paper-2); }
+.chat-item.is-open { background: var(--paper-2); box-shadow: inset 3px 0 0 var(--seal); }
+.chat-item time { font-size: .75rem; color: var(--ink-3); }
+.chat-item small { grid-column: 1 / -1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.chat-item.is-unread b::after { content: ""; display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--seal); margin-left: 8px; vertical-align: middle; }
+.chat-item.is-unread small { color: var(--ink); font-weight: 700; }
+.chat-pane { min-height: 60vh; display: flex; flex-direction: column; }
+.chat-head { display: flex; gap: 12px; align-items: flex-start; border-bottom: 1px solid var(--line); padding-bottom: 10px; margin-bottom: 10px; }
+.chat-head h2 { margin: 0; }
+.chat-head p { margin: 0; }
+.chat-back { display: none; }
+.chat-feed--scroll { height: min(60vh, 560px); overflow-y: auto; padding: 4px 4px 8px; }
+.center { text-align: center; }
+@media (max-width: 760px) {
+  .menu-layout { grid-template-columns: 1fr; }
+  .menu-layout.is-open .chat-list { display: none; }
+  .menu-layout:not(.is-open) .chat-pane { display: none; }
+  .chat-list { position: static; max-height: none; }
+  .chat-back { display: inline; }
+  .chat-head { flex-direction: column; gap: 4px; }
+}

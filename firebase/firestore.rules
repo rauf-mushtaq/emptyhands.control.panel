@@ -22,11 +22,12 @@ service cloud.firestore {
       return signedIn() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'student';
     }
 
-    // Student profiles. Students create and edit their own; they can't change their role.
+    // Student profiles. A new sign-up is a join request (role 'pending') until a coach
+    // accepts it (role 'student') or declines it. Students can't change their own role.
     match /users/{uid} {
       allow read: if signedIn() && (request.auth.uid == uid || isCoach());
       allow create: if signedIn() && request.auth.uid == uid
-        && request.resource.data.role == 'student'
+        && request.resource.data.role == 'pending'
         && request.resource.data.name is string && request.resource.data.name.size() <= 120;
       allow update: if isCoach()
         || (signedIn() && request.auth.uid == uid && request.resource.data.role == resource.data.role
@@ -41,6 +42,20 @@ service cloud.firestore {
         && request.resource.data.title is string && request.resource.data.title.size() <= 120
         && request.resource.data.body is string && request.resource.data.body.size() <= 4000;
       allow delete: if isCoach();
+    }
+
+    // EmptyHands menu: one private thread per accepted student, shared by all coaches.
+    function inThread(uid) { return isCoach() || (signedIn() && request.auth.uid == uid && isStudent()); }
+    match /chats/{uid} {
+      allow read, write: if inThread(uid);
+      match /messages/{id} {
+        allow read: if inThread(uid);
+        allow create: if request.resource.data.text is string
+          && request.resource.data.text.size() > 0 && request.resource.data.text.size() <= 2000
+          && ((isCoach() && request.resource.data.from == 'coach')
+            || (signedIn() && request.auth.uid == uid && isStudent() && request.resource.data.from == 'student'));
+        allow delete: if isCoach();
+      }
     }
 
     // Yearly calendars: public to read, coaches publish.

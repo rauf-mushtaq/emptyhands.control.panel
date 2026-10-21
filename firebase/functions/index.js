@@ -1,5 +1,5 @@
-// When a coach sends a notice (a new notifications/{id} document), push it to the
-// phones of the students it's for. Deploy with `firebase deploy --only functions`
+// Pushes to students' phones: coach notices (to everyone they're for) and coach
+// messages in the EmptyHands menu (to that student). Deploy with `firebase deploy --only functions`
 // (see README.md). Needs the Firebase Blaze plan.
 const { onDocumentCreated } = require('firebase-functions/v2/firestore');
 const { initializeApp } = require('firebase-admin/app');
@@ -50,4 +50,23 @@ exports.pushNotice = onDocumentCreated({ document: 'notifications/{id}', region:
       : null)));
     console.log(`notice ${event.params.id}: sent ${res.successCount}, failed ${res.failureCount}`);
   }
+});
+
+// A coach replied in a student's EmptyHands menu chat: push it to that student's phones.
+exports.pushMessage = onDocumentCreated({ document: 'chats/{uid}/messages/{id}', region: 'europe-west2' }, async event => {
+  const m = event.data.data();
+  if (m.from !== 'coach') return;
+  const user = await getFirestore().doc('users/' + event.params.uid).get();
+  const tokens = (user.exists && user.data().role === 'student' && user.data().pushTokens) || [];
+  if (!tokens.length) return;
+  const res = await getMessaging().sendEachForMulticast({
+    tokens,
+    notification: { title: 'Message from ' + (m.author || 'your coach'), body: m.text.length > 180 ? m.text.slice(0, 177) + '…' : m.text },
+    data: { chat: event.params.uid },
+    android: { priority: 'high', notification: { color: '#A8342A', icon: 'ic_stat_notify' } },
+    apns: { payload: { aps: { sound: 'default' } } },
+  });
+  await Promise.all(res.responses.map((r, j) => (!r.success && GONE.includes(r.error && r.error.code)
+    ? user.ref.update({ pushTokens: FieldValue.arrayRemove(tokens[j]) })
+    : null)));
 });

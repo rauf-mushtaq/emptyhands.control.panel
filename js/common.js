@@ -131,6 +131,14 @@ export function renderYear(el, year, opts = {}) {
   if (opts.onDay) el.onclick = e => { const b = e.target.closest('button.cal-day'); if (b) opts.onDay(b.dataset.key, b); };
 }
 
+// One chat message in the EmptyHands menu. Coach messages are bold; `mine` puts it on the viewer's side.
+export function messageHTML(m, mine) {
+  const who = m.from === 'coach' ? esc(m.author || 'Coach') + ' · Coach' : esc(m.author || 'Student');
+  return `<div class="msg msg--${m.from === 'coach' ? 'coach' : 'student'}${mine ? ' msg--mine' : ''}">
+    <div class="msg-meta">${who} · ${timeAgo(m.createdAt)}</div>
+    <div class="msg-text">${esc(m.text).replace(/\n/g, '<br>')}</div></div>`;
+}
+
 export function legendHTML(counts) {
   return Object.entries(TYPES).map(([t, v]) =>
     `<span class="legend-item"><span class="swatch t-${t}"></span>${v.label}${counts ? ` <small>${counts[t] || 0}</small>` : ''}</span>`).join('');

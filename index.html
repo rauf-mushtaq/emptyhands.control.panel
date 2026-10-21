@@ -19,7 +19,9 @@
   <a class="app-brand" href="https://rauf-mushtaq.github.io/emptyhands/" aria-label="EmptyHands website"><img src="assets/img/logo-light.png" alt="EmptyHands KaraTe School" width="597" height="399"></a>
   <span class="app-title">Coach panel</span>
   <nav class="coach-tabs" id="coach-tabs" aria-label="Coach panel" hidden>
-    <button data-go="notices" aria-current="page">Notices</button>
+    <button data-go="requests">Requests <span class="count" id="request-count"></span></button>
+    <button data-go="menu">EmptyHands menu <span class="count" id="menu-count"></span></button>
+    <button data-go="notices">Notices</button>
     <button data-go="students">Students <span class="count" id="student-count"></span></button>
     <button data-go="calendar">Calendar</button>
     <button data-go="coaches">Coaches</button>
@@ -61,6 +63,44 @@
         <button class="btn btn--ghost btn--block" id="resend">Resend verification email</button>
         <button class="btn btn--ghost btn--block" id="denied-signout">Sign out</button>
       </div>
+    </div>
+  </section>
+
+  <!-- Join requests -->
+  <section class="view" id="view-requests" hidden>
+    <div class="view-head">
+      <div><p class="eyebrow">New sign-ups</p><h1>Join requests</h1></div>
+      <div class="view-actions"><button class="btn btn--ghost btn--sm" id="coach-alerts" hidden>Turn on pop-up alerts</button></div>
+    </div>
+    <p class="muted fine">Accepting a request adds the student to the EmptyHands menu: they get your notices and can message the coaches. Declined requests can still be accepted later from <i>Students → Declined</i>.</p>
+    <div class="requests" id="request-list"></div>
+  </section>
+
+  <!-- EmptyHands menu: one private chat per student -->
+  <section class="view" id="view-menu" hidden>
+    <div class="menu-layout" id="menu-layout">
+      <aside class="chat-list card">
+        <input type="search" id="chat-search" placeholder="Find a student…" aria-label="Find a student">
+        <ul id="chat-list"></ul>
+      </aside>
+      <section class="chat-pane card" id="chat-pane">
+        <div class="empty" id="chat-empty"><span aria-hidden="true">話</span><p>Choose a student to see your conversation with them and their family.</p></div>
+        <div id="chat-open" hidden>
+          <header class="chat-head">
+            <button class="linkish chat-back" id="chat-back" type="button">← All students</button>
+            <div><h2 id="chat-name"></h2><p class="muted fine" id="chat-sub"></p></div>
+          </header>
+          <div class="chat-feed chat-feed--scroll" id="chat-feed" aria-live="polite"></div>
+          <form class="chat-compose" id="form-reply" novalidate>
+            <div class="chat-row">
+              <label class="sr-only" for="reply-text">Message</label>
+              <textarea id="reply-text" rows="1" maxlength="2000" placeholder="Write a message…" required></textarea>
+              <button class="btn btn--seal" type="submit">Send</button>
+            </div>
+            <label class="chat-from">Signed<input id="reply-from" maxlength="60" placeholder="e.g. Azeem Sensei"></label>
+          </form>
+        </div>
+      </section>
     </div>
   </section>
 
