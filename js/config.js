@@ -27,7 +27,11 @@ export const COACH_URL = 'https://rauf-mushtaq.github.io/emptyhands.control.pane
 //    loginEmail/approveLogin functions deployed (see README) — switch on only after that.
 export const COACH_LOGIN_APPROVAL = false;
 
-// 5. The recommended YouTube channel shown in the student app's EmptyHands menu.
+// 5. Automatic PayPal tracking: when true, PayPal payments made from the student app are
+//    recorded against the student by the paypalIpn function. Switch on only after deploying it.
+export const PAYPAL_AUTO_TRACK = false;
+
+// 6. The recommended YouTube channel shown in the student app's EmptyHands menu.
 //    Paste the channel's own address here (e.g. https://www.youtube.com/@ChannelName).
 export const RECOMMENDED = {
   name: 'Shotokan Karate Academy',

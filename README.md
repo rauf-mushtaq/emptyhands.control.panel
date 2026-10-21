@@ -80,3 +80,15 @@ firebase deploy --only functions,firestore:rules
 Then set `COACH_LOGIN_APPROVAL = true` in `js/config.js` in both repositories.
 
 **Locked out?** (e.g. email not arriving) In the Firebase console → Firestore → Rules, publish the previous rules version from the rules history, and set `COACH_LOGIN_APPROVAL = false`.
+
+## Fees: who has paid, and reminders
+
+**Payments → Who has paid** lists every accepted student for a month as Paid / Unpaid / Exempt.
+
+- **Mark paid** records cash or bank payments. **Undo** removes a record. **Exempt** is for students who don't pay a monthly fee (pay-as-you-go, family arrangements).
+- **Remind** / **Remind everyone unpaid** sends a private EmptyHands-menu message ("your October fees haven't been paid yet…"), which also arrives as a phone notification once the functions are deployed.
+- Students see "October fees paid ✓" or "not paid yet" and their payment history on **Pay fees**.
+
+**Automatic (needs the Blaze plan and functions deployed):**
+- `paypalIpn` records PayPal payments made from the student app against the student, after checking each one with PayPal. A monthly fee only counts if it was paid in full to your PayPal account. Turn it on with `PAYPAL_AUTO_TRACK = true` in `js/config.js` (both repositories). In PayPal you may also need to turn on Instant Payment Notifications (Account Settings → Notifications → Instant payment notifications) with the URL `https://europe-west2-emptyhands-student-portal.cloudfunctions.net/paypalIpn`.
+- `monthlyReminders` runs at 10am on the 7th of each month and reminds everyone unpaid, if **Send reminders automatically** is ticked (and saved) in the Payments tab. Nobody is reminded twice in a month.

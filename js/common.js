@@ -101,12 +101,29 @@ export const money = n => '£' + (Math.round(n * 100) / 100).toFixed(n % 1 ? 2 :
 
 // A PayPal "Buy now" link (PayPal Payments Standard). `paypal` is the business account's email
 // or merchant ID; the student's name goes in the item name so Sensei can see who paid.
-export function paypalLink(paypal, fee, who) {
+// With `track` ({ uid, notifyUrl }), PayPal also tells our paypalIpn function about the payment,
+// which records it for that student (custom = uid|fee id|month).
+export function paypalLink(paypal, fee, who, track) {
   const q = new URLSearchParams({
     cmd: '_xclick', business: paypal, item_name: fee.name + (who ? ' — ' + who : ''),
     amount: Number(fee.price).toFixed(2), currency_code: 'GBP', no_shipping: '1',
   });
+  if (track) { q.set('custom', [track.uid, fee.id, monthKey()].join('|')); q.set('notify_url', track.notifyUrl); }
   return 'https://www.paypal.com/cgi-bin/webscr?' + q;
+}
+
+// Fee tracking is by calendar month, e.g. '2026-10'.
+export const monthKey = (d = new Date()) => d.getFullYear() + '-' + pad(d.getMonth() + 1);
+export const monthName = key => { const [y, m] = key.split('-').map(Number); return new Date(y, m - 1, 1).toLocaleDateString('en-GB', { month: 'long', year: 'numeric' }); };
+export const PAY_METHODS = { paypal: 'PayPal', cash: 'Cash', bank: 'Bank transfer', other: 'Other' };
+// A payment counts towards the monthly fee if it's for a per-month fee, or marked by Sensei as monthly.
+export const isMonthly = pmt => pmt.kind === 'monthly';
+// The monthly Karate fee for a belt, for Sensei's "Mark paid" default.
+export function monthlyFeeFor(fees, p) {
+  const lvl = feeLevel(p.grade);
+  return fees.find(f => f.per === 'month' && f.level === lvl && (p.disciplines || []).includes(f.group))
+    || fees.find(f => f.per === 'month' && (p.disciplines || []).includes(f.group))
+    || fees.find(f => f.per === 'month');
 }
 
 // Who a homework item is for: one student, or a group like a notice.

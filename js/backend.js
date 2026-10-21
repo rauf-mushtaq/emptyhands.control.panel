@@ -128,6 +128,13 @@ async function firebaseBackend() {
     refreshToken: () => auth.currentUser.getIdToken(true),
     saveCoaches: emails => F.setDoc(ref('settings', 'coaches'), { emails }),
     getPayments: async () => { const s = await F.getDoc(ref('settings', 'payments')); return s.exists() ? s.data() : null; },
+    // Payment records: written by Sensei (cash etc.) or the paypalIpn function; students read their own.
+    watchMyPayments: (uid, cb) => F.onSnapshot(F.query(F.collection(db, 'payments'), F.where('uid', '==', uid)),
+      snap => cb(rows(snap).sort((a, b) => b.at - a.at)), err => console.error(err)),
+    watchPaymentsForMonth: (month, cb) => F.onSnapshot(F.query(F.collection(db, 'payments'), F.where('month', '==', month)),
+      snap => cb(rows(snap)), err => console.error(err)),
+    addPayment: p => F.addDoc(F.collection(db, 'payments'), { ...p, at: Date.now() }),
+    deletePayment: id => F.deleteDoc(ref('payments', id)),
     savePayments: data => F.setDoc(ref('settings', 'payments'), { ...data, updatedAt: Date.now() }),
   };
 }
@@ -253,6 +260,10 @@ function demoBackend() {
     refreshToken: async () => {},
     saveCoaches: async emails => store('coaches', emails),
     getPayments: async () => load('payments', null),
+    watchMyPayments: (uid, cb) => watch('pmts', () => load('pmts', []).filter(p => p.uid === uid).sort((a, b) => b.at - a.at), cb),
+    watchPaymentsForMonth: (month, cb) => watch('pmts', () => load('pmts', []).filter(p => p.month === month), cb),
+    addPayment: async p => save('pmts', [...load('pmts', []), { ...p, id: 'p' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5), at: Date.now() }]),
+    deletePayment: async id => save('pmts', load('pmts', []).filter(p => p.id !== id)),
     savePayments: async data => save('payments', { ...data, updatedAt: Date.now() }),
   };
 }
