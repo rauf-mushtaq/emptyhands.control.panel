@@ -2,15 +2,14 @@
 // repositories (emptyhands.student and emptyhands.control.panel): change it in both.
 
 // 1. Your Firebase web app config (Firebase console → Project settings → General → Your apps).
-//    While apiKey is empty the app runs in DEMO MODE: accounts and notices are kept
-//    only in the browser you're using, so nothing is shared between devices.
+//    (If apiKey is ever left empty the app runs in DEMO MODE, keeping data only in the browser.)
 export const firebaseConfig = {
-  apiKey: '',
-  authDomain: '',
-  projectId: '',
-  storageBucket: '',
-  messagingSenderId: '',
-  appId: '',
+  apiKey: 'AIzaSyDxHlb-Bqnl2MQk5HcpCDte1Ozej2Fu6s4',
+  authDomain: 'emptyhands-student-portal.firebaseapp.com',
+  projectId: 'emptyhands-student-portal',
+  storageBucket: 'emptyhands-student-portal.firebasestorage.app',
+  messagingSenderId: '596775265118',
+  appId: '1:596775265118:web:522b2582eddffb6ed6a5cf',
 };
 
 // 2. Head coaches. These emails can always open the coach panel (after verifying
