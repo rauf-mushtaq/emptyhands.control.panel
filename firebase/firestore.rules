@@ -14,10 +14,18 @@ service cloud.firestore {
       return exists(/databases/$(database)/documents/settings/coaches)
         ? get(/databases/$(database)/documents/settings/coaches).data.emails : [];
     }
-    function isCoach() {
+    // A coach email (owner or on the coach list) that has been verified.
+    function coachEmail() {
       return signedIn() && request.auth.token.email_verified == true
         && (email() in OWNERS() || email() in coachList());
     }
+    // This sign-in was approved from the owner's inbox (coachSessions is written only by the
+    // approveLogin Cloud Function). auth_time changes every time someone signs in again.
+    function approvedSignIn() {
+      let s = /databases/$(database)/documents/coachSessions/$(request.auth.uid);
+      return exists(s) && get(s).data.authTime == request.auth.token.auth_time;
+    }
+    function isCoach() { return coachEmail() && approvedSignIn(); }
     function isStudent() {
       return signedIn() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'student';
     }
@@ -83,6 +91,17 @@ service cloud.firestore {
     match /calendars/{year} {
       allow read: if true;
       allow write: if isCoach();
+    }
+
+    // Coach sign-in approval: the panel asks, the approveLogin function decides.
+    match /loginRequests/{id} {
+      allow create: if coachEmail()
+        && request.resource.data.uid == request.auth.uid
+        && request.resource.data.authTime == request.auth.token.auth_time
+        && request.resource.data.keys().hasOnly(['uid', 'email', 'authTime', 'device', 'createdAt']);
+    }
+    match /coachSessions/{uid} {
+      allow read: if signedIn() && request.auth.uid == uid;
     }
 
     // Coach list: coaches manage it.
