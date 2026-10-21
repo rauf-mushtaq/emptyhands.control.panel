@@ -427,3 +427,6 @@ button.app-user[aria-current] { background: var(--ink); color: var(--paper); }
 .hw-admin details summary { cursor: pointer; font-weight: 700; font-size: .9rem; }
 .hw-admin ul { margin: 6px 0 0; padding-left: 18px; font-size: .9rem; }
 .hw-admin .done { color: var(--ok); }
+
+/* Coach panel: belt picker in the Students table */
+.belt-select { width: auto; min-height: 36px; padding: 4px 8px; font-size: .9rem; }

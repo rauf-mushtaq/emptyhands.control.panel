@@ -23,7 +23,8 @@ service cloud.firestore {
     }
 
     // Student profiles. A new sign-up is a join request (role 'pending') until a coach
-    // accepts it (role 'student') or declines it. Students can't change their own role.
+    // accepts it (role 'student') or declines it. Students can't change their own role,
+    // and once accepted only Sensei can change their belt (grade).
     match /users/{uid} {
       allow read: if signedIn() && (request.auth.uid == uid || isCoach());
       allow create: if signedIn() && request.auth.uid == uid
@@ -31,6 +32,7 @@ service cloud.firestore {
         && request.resource.data.name is string && request.resource.data.name.size() <= 120;
       allow update: if isCoach()
         || (signedIn() && request.auth.uid == uid && request.resource.data.role == resource.data.role
+            && (resource.data.role == 'pending' || request.resource.data.get('grade', 'none') == resource.data.get('grade', 'none'))
             && request.resource.data.get('pushTokens', []).size() <= 20);
       allow delete: if isCoach() || (signedIn() && request.auth.uid == uid);
     }

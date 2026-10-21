@@ -10,7 +10,7 @@ The control panel for EmptyHands coaches: send notices to students, see who's re
 | **EmptyHands menu** | **Private messages** with each accepted student and their family (unread replies are marked), plus the **Group chat** for everyone and the students' **Training journal**. Your messages show in bold; you can delete any message in the group chat or journal. |
 | **Homework** | Set homework for everyone, a group or one student, with an optional due date. See how many have ticked it off and who. |
 | **Notices** | Send a notice to everyone, or just Karate / Tai Chi / Yoga students, one dojo, or black belts. Shows how many students it will reach. Delete sent notices. |
-| **Students** | Everyone who has signed up: classes, dojo, grade and contact details. Search, filter, download as CSV, remove or restore. |
+| **Students** | Everyone who has signed up: classes, dojo, belt and contact details. Change a student's **belt** from the dropdown (e.g. after a grading) and they see it straight away. Search, filter, download as CSV, remove or restore. |
 | **Calendar** | Mark training dates, closures, black-belt classes and gradings, add notes to dates, edit class times, then **Publish**. |
 | **Coaches** | Add or remove coach emails. |
 

@@ -416,7 +416,9 @@ function drawStudents() {
     <td data-th="Name"><b>${esc(s.name)}</b>${s.guardian ? `<small>Parent: ${esc(s.guardian)}</small>` : ''}</td>
     <td data-th="Classes">${(s.disciplines || []).map(d => `<span class="tag">${DISCIPLINES[d] || esc(d)}</span>`).join(' ')}</td>
     <td data-th="Dojo">${DOJOS[s.dojo] || '—'}</td>
-    <td data-th="Belt">${GRADES[s.grade] || '—'}</td>
+    <td data-th="Belt">${s.role === 'student'
+      ? `<select class="belt-select" data-belt="${esc(s.id)}" aria-label="Belt for ${esc(s.name)}">${Object.entries(GRADES).map(([k, v]) => `<option value="${k}"${k === (s.grade || 'none') ? ' selected' : ''}>${v}</option>`).join('')}</select>`
+      : GRADES[s.grade] || '—'}</td>
     <td data-th="Contact"><a href="mailto:${esc(s.email)}">${esc(s.email)}</a>${s.phone ? `<small><a href="tel:${esc(s.phone)}">${esc(s.phone)}</a></small>` : ''}</td>
     <td data-th="Joined">${s.createdAt ? new Date(s.createdAt).toLocaleDateString('en-GB') : '—'}</td>
     <td>${s.role !== 'student'
@@ -427,6 +429,23 @@ function drawStudents() {
 $('#student-search').addEventListener('input', drawStudents);
 $('#student-filter').addEventListener('change', drawStudents);
 $('#refresh-students').addEventListener('click', e => busy(e.currentTarget, loadStudents));
+// Sensei changes a student's belt (e.g. after a grading). The student sees it straight away.
+$('#student-rows').addEventListener('change', async e => {
+  const sel = e.target.closest('[data-belt]');
+  if (!sel) return;
+  const s = state.students.find(x => x.id === sel.dataset.belt);
+  const before = s.grade || 'none';
+  if (!confirm(`Change ${s.name}’s belt from ${GRADES[before]} to ${GRADES[sel.value]}?`)) { sel.value = before; return; }
+  sel.disabled = true;
+  try {
+    await api.saveProfile(s.id, { grade: sel.value, gradeChangedAt: Date.now() });
+    s.grade = sel.value;
+    toast(`${s.name} is now ${GRADES[sel.value]}`);
+    drawReach(); drawHomeworkAdmin();
+    if (state.open === s.id) openChat(s.id);
+  } catch (err) { sel.value = before; toast(errorText(err), 'bad'); }
+  sel.disabled = false;
+});
 $('#student-rows').addEventListener('click', async e => {
   const rm = e.target.closest('[data-remove]');
   const rs = e.target.closest('[data-restore]');
