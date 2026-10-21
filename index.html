@@ -23,6 +23,7 @@
     <button data-go="menu">EmptyHands menu <span class="count" id="menu-count"></span></button>
     <button data-go="notices">Notices</button>
     <button data-go="homework">Homework</button>
+    <button data-go="payments">Payments</button>
     <button data-go="students">Students <span class="count" id="student-count"></span></button>
     <button data-go="calendar">Calendar</button>
     <button data-go="coaches">Coaches</button>
@@ -150,6 +151,28 @@
         <div class="hw-admin" id="hw-admin"></div>
       </div>
     </div>
+  </section>
+
+  <!-- Payments -->
+  <section class="view" id="view-payments" hidden>
+    <div class="view-head">
+      <div><p class="eyebrow">PayPal</p><h1>Payments</h1></div>
+      <div class="view-actions"><button class="btn btn--seal btn--sm" id="save-payments" type="button">Save</button></div>
+    </div>
+    <div class="card stack">
+      <label>PayPal Business account email (or merchant ID)
+        <input id="paypal-account" type="text" autocomplete="off" placeholder="e.g. payments@emptyhands.co.uk"></label>
+      <p class="muted fine">Payments go straight into this PayPal account. Each payment is labelled with the fee and the student’s name. Check who has paid in PayPal under <i>Activity</i>.</p>
+    </div>
+    <div class="card-head"><h2>Fees students can pay</h2>
+      <span class="view-actions"><button class="btn btn--ghost btn--sm" id="add-fee" type="button">Add a fee</button><button class="btn btn--ghost btn--sm" id="reset-fees" type="button">Reset to website prices</button></span></div>
+    <div class="table-wrap">
+      <table class="students fees-admin">
+        <thead><tr><th>Group</th><th>Fee</th><th>Price (£)</th><th>Per</th><th>Note</th><th>Belt level</th><th><span class="sr-only">Actions</span></th></tr></thead>
+        <tbody id="fee-rows"></tbody>
+      </table>
+    </div>
+    <p class="muted fine">Students see the fees for their own classes first. The fees for their belt level are marked “Your level”. <b>Copy link</b> gives a PayPal link you can paste into a message or notice. Remember to press <b>Save</b>.</p>
   </section>
 
   <!-- Notices -->

@@ -102,6 +102,10 @@ service cloud.firestore {
     }
     match /coachSessions/{uid} {
       allow read: if signedIn() && request.auth.uid == uid;
+    // Fees and PayPal account for the student app's Pay page: Sensei sets them.
+    match /settings/payments {
+      allow read: if signedIn();
+      allow write: if isCoach();
     }
 
     // Coach list: coaches manage it.

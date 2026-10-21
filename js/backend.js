@@ -127,6 +127,8 @@ async function firebaseBackend() {
     watchCoachSession: (uid, cb) => F.onSnapshot(ref('coachSessions', uid), s => cb(s.exists() ? s.data() : null), () => cb(null)),
     refreshToken: () => auth.currentUser.getIdToken(true),
     saveCoaches: emails => F.setDoc(ref('settings', 'coaches'), { emails }),
+    getPayments: async () => { const s = await F.getDoc(ref('settings', 'payments')); return s.exists() ? s.data() : null; },
+    savePayments: data => F.setDoc(ref('settings', 'payments'), { ...data, updatedAt: Date.now() }),
   };
 }
 
@@ -250,5 +252,7 @@ function demoBackend() {
     watchCoachSession: (uid, cb) => { setTimeout(() => cb({ authTime: 1 })); return () => {}; },
     refreshToken: async () => {},
     saveCoaches: async emails => store('coaches', emails),
+    getPayments: async () => load('payments', null),
+    savePayments: async data => save('payments', { ...data, updatedAt: Date.now() }),
   };
 }

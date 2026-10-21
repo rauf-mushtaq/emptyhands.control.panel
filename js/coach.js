@@ -2,7 +2,7 @@ import { backend, DEMO, isCoach, errorText } from './backend.js';
 import { OWNER_EMAILS, STUDENT_URL, COACH_LOGIN_APPROVAL } from './config.js';
 import {
   $, $$, esc, GRADES, DISCIPLINES, DOJOS, AUDIENCES, renderYear, legendHTML, loadCalendar, calendarYears,
-  noticeIsFor, homeworkIsFor, longDate, shortDate, timeAgo, keyOf, download, toast, busy, messageHTML,
+  noticeIsFor, homeworkIsFor, DEFAULT_FEES, FEE_GROUPS, FEE_LEVELS, paypalLink, longDate, shortDate, timeAgo, keyOf, download, toast, busy, messageHTML,
 } from './common.js';
 
 let api;
@@ -23,6 +23,7 @@ function show(id) {
   if (inside) state.view = id;
   if (id === 'menu') { drawChatList(); drawChannel(); if (state.open) markOpenRead(); }
   if (id === 'homework') drawHomeworkAdmin();
+  if (id === 'payments') loadPayments();
 }
 $('#coach-tabs').addEventListener('click', e => {
   const b = e.target.closest('[data-go]');
@@ -139,7 +140,8 @@ async function onAuth(user) {
   await loadStudents();
   await loadYear(ed.year);
   const start = location.hash.slice(1);
-  const chosen = ['requests', 'menu', 'notices', 'homework', 'students', 'calendar', 'coaches'].includes(start);
+  const chosen = ['requests', 'menu', 'notices', 'homework', 'payments', 'students', 'calendar', 'coaches'].includes(start);
+  if (start === 'payments') loadPayments();
   show(chosen ? start : (state.requests || []).length ? 'requests' : 'menu');
   // The request list may load after this; if there are requests waiting, open on them.
   state.autoStart = !chosen;
@@ -254,6 +256,70 @@ $('#form-channel').addEventListener('submit', async e => {
     } catch (err) { toast(errorText(err), 'bad'); }
   });
 });
+
+// ---- payments (PayPal) ----
+const pay = { fees: [], dirty: false };
+async function loadPayments() {
+  if (pay.dirty) return;
+  let s = null;
+  try { s = await api.getPayments(); } catch (err) { toast(errorText(err), 'bad'); }
+  $('#paypal-account').value = (s && s.paypal) || '';
+  pay.fees = structuredClone((s && s.fees) || DEFAULT_FEES);
+  drawFees();
+}
+const opts = (map, v, blank) => (blank ? `<option value="">${blank}</option>` : '') + Object.entries(map).map(([k, n]) => `<option value="${k}"${k === v ? ' selected' : ''}>${n}</option>`).join('');
+function drawFees() {
+  $('#fee-rows').innerHTML = pay.fees.map((f, i) => `<tr data-i="${i}">
+    <td data-th="Group"><select data-k="group">${opts(FEE_GROUPS, f.group || 'other')}</select></td>
+    <td data-th="Fee"><input data-k="name" value="${esc(f.name)}" maxlength="80" aria-label="Fee name"></td>
+    <td data-th="Price"><input data-k="price" type="number" min="0" step="0.5" value="${esc(f.price)}" aria-label="Price in pounds"></td>
+    <td data-th="Per"><input data-k="per" value="${esc(f.per || '')}" maxlength="20" placeholder="e.g. month" aria-label="Per"></td>
+    <td data-th="Note"><input data-k="note" value="${esc(f.note || '')}" maxlength="100" aria-label="Note"></td>
+    <td data-th="Level"><select data-k="level">${opts(FEE_LEVELS, f.level || '', 'Any')}</select></td>
+    <td><button type="button" class="linkish" data-copy="${i}">Copy link</button> <button type="button" class="linkish danger" data-delfee="${i}">Remove</button></td>
+  </tr>`).join('') || '<tr><td colspan="7" class="muted">No fees — add one.</td></tr>';
+}
+$('#fee-rows').addEventListener('input', e => {
+  const el = e.target.closest('[data-k]');
+  if (!el) return;
+  const f = pay.fees[+el.closest('tr').dataset.i];
+  f[el.dataset.k] = el.dataset.k === 'price' ? Number(el.value) : el.value.trim();
+  if (el.dataset.k === 'level' && !el.value) delete f.level;
+  pay.dirty = true;
+});
+$('#paypal-account').addEventListener('input', () => { pay.dirty = true; });
+$('#fee-rows').addEventListener('click', async e => {
+  const del = e.target.closest('[data-delfee]');
+  const copy = e.target.closest('[data-copy]');
+  if (del) { pay.fees.splice(+del.dataset.delfee, 1); pay.dirty = true; drawFees(); }
+  if (copy) {
+    const paypal = $('#paypal-account').value.trim();
+    if (!paypal) return toast('Add your PayPal account first', 'bad');
+    const link = paypalLink(paypal, pay.fees[+copy.dataset.copy]);
+    try { await navigator.clipboard.writeText(link); toast('PayPal link copied — paste it into a message or notice'); }
+    catch { prompt('Copy this PayPal link:', link); }
+  }
+});
+$('#add-fee').addEventListener('click', () => {
+  pay.fees.push({ id: 'f' + Date.now().toString(36), group: 'other', name: 'New fee', price: 10, per: '', note: '' });
+  pay.dirty = true; drawFees();
+  $('#fee-rows tr:last-child [data-k=name]').select();
+});
+$('#reset-fees').addEventListener('click', () => {
+  if (!confirm('Replace the list with the prices from the website’s Fees page?')) return;
+  pay.fees = structuredClone(DEFAULT_FEES); pay.dirty = true; drawFees();
+});
+$('#save-payments').addEventListener('click', e => busy(e.currentTarget, async () => {
+  const paypal = $('#paypal-account').value.trim();
+  const bad = pay.fees.find(f => !f.name || !(f.price > 0));
+  if (bad) return toast('Every fee needs a name and a price above £0', 'bad');
+  if (paypal && !/^(\S+@\S+\.\S+|[A-Z0-9]{10,16})$/i.test(paypal)) return toast('That doesn’t look like a PayPal email or merchant ID', 'bad');
+  try {
+    await api.savePayments({ paypal, fees: pay.fees });
+    pay.dirty = false;
+    toast(paypal ? 'Saved — students can now pay with PayPal' : 'Saved. Add your PayPal account so students can pay.');
+  } catch (err) { toast(errorText(err), 'bad'); }
+}));
 
 // ---- homework ----
 function drawHomeworkTargets() {

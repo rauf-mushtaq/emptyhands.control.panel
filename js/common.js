@@ -68,6 +68,47 @@ export function timeAgo(ms) {
   return new Date(ms).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
 }
 
+// ---- Payments ----
+// Default fee list (from the website's Fees page). Sensei can change it in the coach panel.
+// `level` links a monthly fee or grading to belts, so the student app can highlight theirs.
+export const DEFAULT_FEES = [
+  { id: 'membership', group: 'karate', name: 'Annual membership', price: 40, per: 'year', note: 'Dojo licence and insurance' },
+  { id: 'starter', group: 'karate', name: 'New starter lesson', price: 10, per: 'lesson', note: 'Pay-as-you-go for your first few weeks' },
+  { id: 'k-beg', group: 'karate', name: 'Karate monthly — Beginner', price: 30, per: 'month', note: 'White to Orange belt', level: 'beginner' },
+  { id: 'k-int', group: 'karate', name: 'Karate monthly — Intermediate', price: 35, per: 'month', note: 'Yellow to Green belt', level: 'intermediate' },
+  { id: 'k-adv', group: 'karate', name: 'Karate monthly — Advanced', price: 40, per: 'month', note: 'Purple to Brown belt', level: 'advanced' },
+  { id: 'k-advx', group: 'karate', name: 'Karate monthly — Advanced (extended)', price: 50, per: 'month', note: 'Purple to Brown belt, 6:30pm – 9pm', level: 'advanced' },
+  { id: 'g-beg', group: 'grading', name: 'Grading — Beginner', price: 25, per: '', note: 'White to Orange belt', level: 'beginner' },
+  { id: 'g-int', group: 'grading', name: 'Grading — Intermediate', price: 30, per: '', note: 'Yellow to Green belt', level: 'intermediate' },
+  { id: 'g-adv', group: 'grading', name: 'Grading — Advanced', price: 35, per: '', note: 'Purple to Brown belt', level: 'advanced' },
+  { id: 'g-adv2', group: 'grading', name: 'Grading — Advanced II', price: 45, per: '', note: 'Brown 2 stripe and above', level: 'advanced2' },
+  { id: 'y-drop', group: 'yoga', name: 'Yoga drop-in', price: 10, per: 'class', note: '' },
+  { id: 'y-month', group: 'yoga', name: 'Yoga monthly', price: 30, per: 'month', note: '' },
+  { id: 't-drop', group: 'taichi', name: 'Tai Chi drop-in', price: 10, per: 'class', note: 'Advance booking required' },
+  { id: 't-month', group: 'taichi', name: 'Tai Chi monthly', price: 30, per: 'month', note: '' },
+];
+export const FEE_GROUPS = { karate: 'Karate', grading: 'Gradings', yoga: 'Yoga', taichi: 'Tai Chi', other: 'Other' };
+export const FEE_LEVELS = { beginner: 'Beginner', intermediate: 'Intermediate', advanced: 'Advanced', advanced2: 'Advanced II' };
+
+// Belt → fee level, for highlighting a student's monthly fee and grading.
+export function feeLevel(grade) {
+  if (['yellow', 'green'].includes(grade)) return 'intermediate';
+  if (['purple', 'purple1', 'brown', 'brown1'].includes(grade)) return 'advanced';
+  if (['brown2', 'dan'].includes(grade)) return 'advanced2';
+  return 'beginner';
+}
+export const money = n => '£' + (Math.round(n * 100) / 100).toFixed(n % 1 ? 2 : 0);
+
+// A PayPal "Buy now" link (PayPal Payments Standard). `paypal` is the business account's email
+// or merchant ID; the student's name goes in the item name so Sensei can see who paid.
+export function paypalLink(paypal, fee, who) {
+  const q = new URLSearchParams({
+    cmd: '_xclick', business: paypal, item_name: fee.name + (who ? ' — ' + who : ''),
+    amount: Number(fee.price).toFixed(2), currency_code: 'GBP', no_shipping: '1',
+  });
+  return 'https://www.paypal.com/cgi-bin/webscr?' + q;
+}
+
 // Who a homework item is for: one student, or a group like a notice.
 export function homeworkIsFor(h, uid, p) {
   return h.student ? h.student === uid : noticeIsFor(h, p);
