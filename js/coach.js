@@ -1,5 +1,5 @@
 import { backend, DEMO, isCoach, errorText } from './backend.js';
-import { OWNER_EMAILS, STUDENT_URL } from './config.js';
+import { OWNER_EMAILS, STUDENT_URL, COACH_LOGIN_APPROVAL } from './config.js';
 import {
   $, $$, esc, GRADES, DISCIPLINES, DOJOS, AUDIENCES, renderYear, legendHTML, loadCalendar, calendarYears,
   noticeIsFor, homeworkIsFor, longDate, shortDate, timeAgo, keyOf, download, toast, busy, messageHTML,
@@ -16,7 +16,7 @@ function showError(form, msg) { const el = $('.form-error', form); el.textConten
 function show(id) {
   $('#loading').hidden = true;
   $$('.view').forEach(v => { v.hidden = v.id !== 'view-' + id; });
-  const inside = !['auth', 'denied'].includes(id);
+  const inside = !['auth', 'denied', 'approval'].includes(id);
   $('#coach-tabs').hidden = !inside;
   $('#signout').hidden = !inside;
   $$('#coach-tabs button').forEach(b => b.toggleAttribute('aria-current', b.dataset.go === id));
@@ -75,6 +75,41 @@ $('#resend').addEventListener('click', async () => {
 });
 $('#recheck').addEventListener('click', async () => onAuth(await api.reloadUser()));
 
+// ---- sign-in approval: each new sign-in waits for the owner to approve it by email ----
+const OWNER = OWNER_EMAILS[0];
+async function approved(user) {
+  const authTime = await api.signInTime();
+  const session = await new Promise(res => { const stop = api.watchCoachSession(user.uid, s => { stop(); res(s); }); });
+  if (session && session.authTime === authTime) return true;
+  $('#approval-why').innerHTML = `For security, we’ve emailed <b>${esc(OWNER)}</b> to check it’s really you signing in as <b>${esc(user.email)}</b>. Open that email and tap <b>Approve</b>.`;
+  show('approval');
+  await askApproval(user, authTime);
+  state.stops.push(api.watchCoachSession(user.uid, async s => {
+    if (!s || state.user !== user) return;
+    if (s.deniedAuthTime === authTime) {
+      toast('This sign-in was declined.', 'bad');
+      api.signOut();
+    } else if (s.authTime === authTime) {
+      await api.refreshToken();
+      toast('Sign-in approved');
+      onAuth(user);
+    }
+  }));
+  return false;
+}
+let lastAsk = 0;
+async function askApproval(user, authTime) {
+  if (Date.now() - lastAsk < 30000) return toast('Please wait a moment before sending another email.');
+  lastAsk = Date.now();
+  try { await api.requestCoachLogin(user.uid, user.email, authTime); } catch (err) { toast(errorText(err), 'bad'); }
+}
+$('#approval-resend').addEventListener('click', async () => {
+  if (!state.user) return;
+  await askApproval(state.user, await api.signInTime());
+  toast('Approval email sent to ' + OWNER);
+});
+$('#approval-signout').addEventListener('click', () => api.signOut());
+
 async function onAuth(user) {
   state.stops.forEach(stop => stop && stop());
   state.stops = [];
@@ -91,6 +126,7 @@ async function onAuth(user) {
     show('denied');
     return;
   }
+  if (COACH_LOGIN_APPROVAL && !(await approved(user))) return;
   $('#form-notice [name=from]').value = savedName();
   $('#reply-from').value = savedName();
   $('#form-homework').from.value = savedName();

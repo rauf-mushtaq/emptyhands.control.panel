@@ -117,6 +117,15 @@ async function firebaseBackend() {
     listCalendarYears: async () => (await F.getDocs(F.collection(db, 'calendars'))).docs.map(d => +d.id),
 
     getCoaches: async () => { const s = await F.getDoc(ref('settings', 'coaches')); return s.exists() ? s.data().emails || [] : []; },
+
+    // Coach sign-in approval. A sign-in is identified by the token's auth_time; the panel asks for
+    // approval with a loginRequests doc, and a Cloud Function emails the owner a link that writes
+    // coachSessions/{uid} once approved.
+    signInTime: async () => +(await auth.currentUser.getIdTokenResult()).claims.auth_time,
+    requestCoachLogin: async (uid, email, authTime) => F.addDoc(F.collection(db, 'loginRequests'),
+      { uid, email, authTime, device: navigator.userAgent.slice(0, 300), createdAt: F.serverTimestamp() }),
+    watchCoachSession: (uid, cb) => F.onSnapshot(ref('coachSessions', uid), s => cb(s.exists() ? s.data() : null), () => cb(null)),
+    refreshToken: () => auth.currentUser.getIdToken(true),
     saveCoaches: emails => F.setDoc(ref('settings', 'coaches'), { emails }),
   };
 }
@@ -235,6 +244,11 @@ function demoBackend() {
     listCalendarYears: async () => Object.keys(cals.all()).map(Number),
 
     getCoaches: async () => load('coaches', []),
+    // Demo mode has no email: sign-ins are approved straight away.
+    signInTime: async () => 1,
+    requestCoachLogin: async () => {},
+    watchCoachSession: (uid, cb) => { setTimeout(() => cb({ authTime: 1 })); return () => {}; },
+    refreshToken: async () => {},
     saveCoaches: async emails => store('coaches', emails),
   };
 }

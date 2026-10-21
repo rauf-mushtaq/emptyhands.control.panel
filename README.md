@@ -64,3 +64,19 @@ Notices follow the audience you chose when sending.
 ## Shared files
 
 `app.css` and everything in `js/` except `coach.js` are the same as in emptyhands.student. If you change one of them, copy the change to the other repository.
+
+## Coach sign-in approval (email to info@emptyhands.co.uk)
+
+When `COACH_LOGIN_APPROVAL` is `true` in `js/config.js`, every new sign-in to the coach panel shows "Approve this sign-in" and emails **info@emptyhands.co.uk** a link with **Approve / Decline** buttons. The panel opens by itself once approved; a declined sign-in is signed out. The security rules require an approved sign-in for every coach action, so a stolen password alone isn't enough.
+
+It needs the Blaze plan, a [Resend](https://resend.com) account created with info@emptyhands.co.uk (free), and deploying the functions, secret and rules together:
+
+```sh
+cd firebase
+firebase functions:secrets:set RESEND_API_KEY     # paste the Resend API key
+firebase deploy --only functions,firestore:rules
+```
+
+Then set `COACH_LOGIN_APPROVAL = true` in `js/config.js` in both repositories.
+
+**Locked out?** (e.g. email not arriving) In the Firebase console → Firestore → Rules, publish the previous rules version from the rules history, and set `COACH_LOGIN_APPROVAL = false`.

@@ -22,7 +22,12 @@ export const SITE_URL = 'https://rauf-mushtaq.github.io/emptyhands/';
 export const STUDENT_URL = 'https://rauf-mushtaq.github.io/emptyhands.student/';
 export const COACH_URL = 'https://rauf-mushtaq.github.io/emptyhands.control.panel/';
 
-// 4. The recommended YouTube channel shown in the student app's EmptyHands menu.
+// 4. Coach sign-in approval: when true, every new sign-in to the coach panel waits until
+//    someone approves it from the email sent to the first OWNER_EMAILS address. Needs the
+//    loginEmail/approveLogin functions deployed (see README) — switch on only after that.
+export const COACH_LOGIN_APPROVAL = false;
+
+// 5. The recommended YouTube channel shown in the student app's EmptyHands menu.
 //    Paste the channel's own address here (e.g. https://www.youtube.com/@ChannelName).
 export const RECOMMENDED = {
   name: 'Shotokan Karate Academy',
