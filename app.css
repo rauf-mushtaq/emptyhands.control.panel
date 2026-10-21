@@ -456,3 +456,17 @@ button.app-user[aria-current] { background: var(--ink); color: var(--paper); }
 .fees-admin td:nth-child(3) input { width: 90px; }
 .fees-admin td:nth-child(4) input { width: 100px; }
 .fees-admin td:last-child { white-space: nowrap; }
+
+/* Fee status and history */
+.pay-status { margin-bottom: 12px; border-left: 4px solid var(--seal); }
+.pay-status b, .pay-status small { display: block; }
+.pay-status.is-paid { border-left-color: var(--ok); background: #eef5ec; }
+.pay-status.is-paid b { color: var(--ok); }
+.pay-history { list-style: none; margin: 0 0 18px; padding: 0; background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); }
+.pay-history li { display: flex; justify-content: space-between; gap: 12px; padding: 10px 14px; border-top: 1px solid var(--line); }
+.pay-history li:first-child { border-top: 0; }
+.pay-history small { display: block; }
+.tag--ok { background: #e1eedf; color: var(--ok); }
+.paid-tracker { margin-bottom: 16px; }
+.paid-tracker .card-head { margin-top: 0; flex-wrap: wrap; }
+.paid-tracker h3 { margin-top: 14px; font-size: 1rem; }

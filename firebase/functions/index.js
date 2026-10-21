@@ -3,6 +3,7 @@
 // (see README.md). Needs the Firebase Blaze plan.
 const { onDocumentCreated } = require('firebase-functions/v2/firestore');
 const { onRequest } = require('firebase-functions/v2/https');
+const { onSchedule } = require('firebase-functions/v2/scheduler');
 const { defineSecret } = require('firebase-functions/params');
 const crypto = require('node:crypto');
 const { initializeApp } = require('firebase-admin/app');
@@ -181,4 +182,69 @@ exports.approveLogin = onRequest({ region: REGION, invoker: 'public' }, async (r
   page(res, 200, approve ? 'Sign-in approved' : 'Sign-in declined', approve
     ? `<p><b>${escHtml(r.email)}</b> can now use the coach panel on that device.</p>`
     : `<p>The sign-in for <b>${escHtml(r.email)}</b> was declined and has been signed out. If you didn’t expect it, change that account’s password.</p>`);
+});
+
+// ---- Fees: PayPal payment tracking and monthly reminders ----
+const londonMonth = () => {
+  const [{ value: y }, , { value: m }] = new Intl.DateTimeFormat('en-GB', { timeZone: 'Europe/London', year: 'numeric', month: '2-digit' }).formatToParts(new Date()).reverse();
+  return `${y}-${m}`;
+};
+
+// PayPal Instant Payment Notification. Links from the student app send custom = uid|fee id|month.
+// Each notification is checked with PayPal before anything is recorded.
+exports.paypalIpn = onRequest({ region: REGION, invoker: 'public' }, async (req, res) => {
+  if (req.method !== 'POST') return res.status(405).send('POST only');
+  const raw = req.rawBody.toString('utf8');
+  const check = await fetch('https://ipnpb.paypal.com/cgi-bin/webscr', {
+    method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'User-Agent': 'EmptyHands-IPN' },
+    body: 'cmd=_notify-validate&' + raw,
+  });
+  if ((await check.text()) !== 'VERIFIED') { console.warn('IPN not verified'); return res.status(200).end(); }
+  const p = new URLSearchParams(raw);
+  if (p.get('payment_status') !== 'Completed' || p.get('mc_currency') !== 'GBP') return res.status(200).end();
+  const db = getFirestore();
+  const settings = (await db.doc('settings/payments').get()).data() || {};
+  const ours = (settings.paypal || '').toLowerCase();
+  const to = ['receiver_email', 'business', 'receiver_id'].map(k => (p.get(k) || '').toLowerCase());
+  if (!ours || !to.includes(ours)) { console.warn('IPN for a different PayPal account'); return res.status(200).end(); }
+  const txn = p.get('txn_id') || '';
+  if (!/^[A-Z0-9]{6,30}$/i.test(txn)) return res.status(200).end();
+  const [uid, feeId, month] = (p.get('custom') || '').split('|');
+  const user = uid && /^[A-Za-z0-9]{10,40}$/.test(uid) ? await db.doc('users/' + uid).get() : null;
+  const fee = (settings.fees || []).find(f => f.id === feeId);
+  const amount = Number(p.get('mc_gross')) || 0;
+  // Only counts as the monthly fee if it's a per-month fee paid in full.
+  const monthly = !!fee && fee.per === 'month' && amount + 0.001 >= Number(fee.price);
+  await db.doc('payments/pp-' + txn).set({
+    uid: user && user.exists ? uid : null, name: user && user.exists ? user.data().name : '',
+    feeId: fee ? fee.id : '', feeName: fee ? fee.name : (p.get('item_name') || 'PayPal payment').slice(0, 120),
+    amount, month: /^\d{4}-\d{2}$/.test(month || '') ? month : londonMonth(), kind: monthly ? 'monthly' : 'other',
+    method: 'paypal', txn, payer: `${p.get('first_name') || ''} ${p.get('last_name') || ''} ${p.get('payer_email') || ''}`.trim().slice(0, 160),
+    at: Date.now(),
+  }, { merge: true });
+  res.status(200).end();
+});
+
+// On the 7th of each month, if Sensei switched on automatic reminders, message every accepted
+// student who hasn't paid this month's fee (the message also arrives as a push notification).
+exports.monthlyReminders = onSchedule({ schedule: '0 10 7 * *', timeZone: 'Europe/London', region: REGION }, async () => {
+  const db = getFirestore();
+  const settings = (await db.doc('settings/payments').get()).data() || {};
+  if (!settings.autoRemind) return;
+  const month = londonMonth();
+  const monthName = new Date(month + '-01T12:00:00Z').toLocaleDateString('en-GB', { month: 'long', year: 'numeric' });
+  const [students, payments] = await Promise.all([
+    db.collection('users').where('role', '==', 'student').get(),
+    db.collection('payments').where('month', '==', month).get(),
+  ]);
+  const paid = new Set(payments.docs.filter(d => d.data().kind === 'monthly').map(d => d.data().uid));
+  for (const doc of students.docs) {
+    const s = doc.data();
+    if (s.feesExempt || paid.has(doc.id) || (s.feeReminded || {})[month]) continue;
+    const text = `Hi ${(s.name || '').split(' ')[0]}, just a reminder that your ${monthName} fees haven’t been paid yet. You can pay in the app under Home → Pay fees, or at the dojo. Thank you!`;
+    const now = Date.now();
+    await db.collection(`chats/${doc.id}/messages`).add({ text, from: 'coach', author: 'EmptyHands Sensei', uid: 'system', createdAt: FieldValue.serverTimestamp() });
+    await db.doc('chats/' + doc.id).set({ name: s.name || '', lastAt: now, lastFrom: 'coach', lastText: text.slice(0, 140), coachReadAt: now }, { merge: true });
+    await doc.ref.update({ [`feeReminded.${month}`]: now });
+  }
 });

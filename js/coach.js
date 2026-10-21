@@ -2,7 +2,8 @@ import { backend, DEMO, isCoach, errorText } from './backend.js';
 import { OWNER_EMAILS, STUDENT_URL, COACH_LOGIN_APPROVAL } from './config.js';
 import {
   $, $$, esc, GRADES, DISCIPLINES, DOJOS, AUDIENCES, renderYear, legendHTML, loadCalendar, calendarYears,
-  noticeIsFor, homeworkIsFor, DEFAULT_FEES, FEE_GROUPS, FEE_LEVELS, paypalLink, longDate, shortDate, timeAgo, keyOf, download, toast, busy, messageHTML,
+  noticeIsFor, homeworkIsFor, DEFAULT_FEES, FEE_GROUPS, FEE_LEVELS, paypalLink, longDate,
+  monthKey, monthName, isMonthly, monthlyFeeFor, money, PAY_METHODS, shortDate, timeAgo, keyOf, download, toast, busy, messageHTML,
 } from './common.js';
 
 let api;
@@ -264,9 +265,114 @@ async function loadPayments() {
   let s = null;
   try { s = await api.getPayments(); } catch (err) { toast(errorText(err), 'bad'); }
   $('#paypal-account').value = (s && s.paypal) || '';
+  $('#auto-remind').checked = !!(s && s.autoRemind);
   pay.fees = structuredClone((s && s.fees) || DEFAULT_FEES);
   drawFees();
+  if (!pay.month) pickMonth(monthKey());
 }
+
+// ---- who has paid ----
+function pickMonth(m) {
+  pay.month = m;
+  const months = [];
+  for (let i = 0; i < 6; i++) { const d = new Date(); d.setDate(1); d.setMonth(d.getMonth() - i); months.push(monthKey(d)); }
+  $('#paid-month').innerHTML = months.map(k => `<option value="${k}"${k === m ? ' selected' : ''}>${monthName(k)}</option>`).join('');
+  if (pay.stop) pay.stop();
+  pay.stop = api.watchPaymentsForMonth(m, list => { pay.list = list; drawPaid(); });
+}
+$('#paid-month').addEventListener('change', e => pickMonth(e.target.value));
+const reminded = s => ((s.feeReminded || {})[pay.month]) || 0;
+function paidRows() {
+  return state.students.filter(s => s.role === 'student').map(s => ({ s, pmt: (pay.list || []).find(x => x.uid === s.id && isMonthly(x)) }));
+}
+function drawPaid() {
+  const rows = paidRows();
+  const due = rows.filter(r => !r.s.feesExempt);
+  const paid = due.filter(r => r.pmt).length;
+  const unpaid = due.filter(r => !r.pmt);
+  $('#paid-summary').textContent = due.length ? `· ${paid} of ${due.length} paid` : '';
+  $('#remind-all').disabled = !unpaid.length;
+  $('#remind-all').textContent = unpaid.length ? `Remind everyone unpaid (${unpaid.length})` : 'Everyone has paid';
+  rows.sort((a, b) => !!a.pmt - !!b.pmt || !!a.s.feesExempt - !!b.s.feesExempt || a.s.name.localeCompare(b.s.name));
+  $('#paid-rows').innerHTML = rows.map(({ s, pmt }) => `<tr>
+    <td data-th="Student"><b>${esc(s.name)}</b>${s.guardian ? `<small>Parent: ${esc(s.guardian)}</small>` : ''}</td>
+    <td data-th="Belt">${GRADES[s.grade] || '—'}</td>
+    <td data-th="Status">${s.feesExempt ? '<span class="tag">Exempt</span>'
+      : pmt ? `<span class="tag tag--ok">Paid</span> ${money(pmt.amount)} · ${PAY_METHODS[pmt.method] || ''} · ${new Date(pmt.at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}`
+      : `<span class="tag tag--seal">Unpaid</span>${reminded(s) ? ` <small>reminded ${timeAgo(reminded(s))}</small>` : ''}`}</td>
+    <td>${pmt ? `<button class="linkish" data-unpay="${esc(pmt.id)}">Undo</button>`
+      : s.feesExempt ? `<button class="linkish" data-exempt="${esc(s.id)}">Not exempt</button>`
+      : `<button class="linkish" data-markpaid="${esc(s.id)}">Mark paid</button> <button class="linkish" data-remind="${esc(s.id)}">Remind</button> <button class="linkish" data-exempt="${esc(s.id)}">Exempt</button>`}</td>
+  </tr>`).join('') || '<tr><td colspan="4" class="muted">No accepted students yet.</td></tr>';
+  const strays = (pay.list || []).filter(x => !x.uid || !state.students.some(s => s.id === x.uid));
+  $('#unmatched').innerHTML = strays.length ? `<h3>PayPal payments not linked to a student</h3><ul class="plain">${strays.map(x => `<li><span>${money(x.amount)} · ${esc(x.feeName || '')} · ${esc(x.payer || '')}</span><button class="linkish danger" data-unpay="${esc(x.id)}">Remove</button></li>`).join('')}</ul>` : '';
+}
+async function remind(s) {
+  const author = savedName() || 'Sensei';
+  const text = `Hi ${s.name.split(' ')[0]}, just a reminder that your ${monthName(pay.month)} fees haven’t been paid yet. You can pay in the app under Home → Pay fees, or at the dojo. Thank you!`;
+  await api.sendMessage(s.id, s.name, { text, from: 'coach', author, uid: state.user.uid });
+  const feeReminded = { ...(s.feeReminded || {}), [pay.month]: Date.now() };
+  await api.saveProfile(s.id, { feeReminded });
+  s.feeReminded = feeReminded;
+}
+$('#paid-rows').addEventListener('click', async e => {
+  const b = e.target.closest('[data-markpaid], [data-remind], [data-unpay], [data-exempt]');
+  if (!b) return;
+  const d = b.dataset;
+  const s = state.students.find(x => x.id === (d.markpaid || d.remind || d.exempt));
+  try {
+    if (d.markpaid) {
+      const fee = monthlyFeeFor(pay.fees, s) || { name: 'Monthly fee', price: '' };
+      const f = $('#form-paid');
+      f.reset();
+      f.amount.value = fee.price;
+      $('#paid-title').textContent = 'Mark ' + s.name + ' as paid';
+      $('#paid-month-label').textContent = monthName(pay.month) + ' · ' + fee.name;
+      $('#paid-dialog').dataset.uid = s.id;
+      showError(f);
+      $('#paid-dialog').showModal();
+    } else if (d.unpay) {
+      if (!confirm('Remove this payment record?')) return;
+      await api.deletePayment(d.unpay);
+    } else if (d.remind) {
+      await busy(b, () => remind(s));
+      toast(`Reminder sent to ${s.name}`); drawPaid();
+    } else if (d.exempt) {
+      s.feesExempt = !s.feesExempt;
+      await api.saveProfile(s.id, { feesExempt: s.feesExempt });
+      drawPaid();
+    }
+  } catch (err) { toast(errorText(err), 'bad'); }
+});
+$('#form-paid').addEventListener('submit', async e => {
+  if (e.submitter && e.submitter.value === 'cancel') return;
+  e.preventDefault();
+  const f = e.target;
+  const amount = Number(f.amount.value);
+  if (!(amount > 0)) return showError(f, 'Please enter the amount they paid.');
+  const s = state.students.find(x => x.id === $('#paid-dialog').dataset.uid);
+  const fee = monthlyFeeFor(pay.fees, s) || { name: 'Monthly fee' };
+  await busy(f.querySelector('[value=save]'), async () => {
+    try {
+      await api.addPayment({ uid: s.id, name: s.name, feeId: fee.id || '', feeName: fee.name, amount, month: pay.month, kind: 'monthly', method: f.method.value, by: savedName() || state.user.email });
+      $('#paid-dialog').close();
+      toast(`${s.name} marked as paid`);
+    } catch (err) { showError(f, errorText(err)); }
+  });
+});
+$('#unmatched').addEventListener('click', async e => {
+  const b = e.target.closest('[data-unpay]');
+  if (b && confirm('Remove this payment record?')) { try { await api.deletePayment(b.dataset.unpay); } catch (err) { toast(errorText(err), 'bad'); } }
+});
+$('#remind-all').addEventListener('click', e => busy(e.currentTarget, async () => {
+  const unpaid = paidRows().filter(r => !r.s.feesExempt && !r.pmt).map(r => r.s);
+  if (!unpaid.length || !confirm(`Send a payment reminder to ${unpaid.length} student${unpaid.length === 1 ? '' : 's'}?`)) return;
+  let n = 0;
+  for (const s of unpaid) { try { await remind(s); n++; } catch (err) { console.warn(err); } }
+  toast(`Reminder sent to ${n} student${n === 1 ? '' : 's'}`);
+  drawPaid();
+}));
+$('#auto-remind').addEventListener('change', () => { pay.dirty = true; toast('Press Save to keep this setting'); });
 const opts = (map, v, blank) => (blank ? `<option value="">${blank}</option>` : '') + Object.entries(map).map(([k, n]) => `<option value="${k}"${k === v ? ' selected' : ''}>${n}</option>`).join('');
 function drawFees() {
   $('#fee-rows').innerHTML = pay.fees.map((f, i) => `<tr data-i="${i}">
@@ -315,7 +421,7 @@ $('#save-payments').addEventListener('click', e => busy(e.currentTarget, async (
   if (bad) return toast('Every fee needs a name and a price above £0', 'bad');
   if (paypal && !/^(\S+@\S+\.\S+|[A-Z0-9]{10,16})$/i.test(paypal)) return toast('That doesn’t look like a PayPal email or merchant ID', 'bad');
   try {
-    await api.savePayments({ paypal, fees: pay.fees });
+    await api.savePayments({ paypal, fees: pay.fees, autoRemind: $('#auto-remind').checked });
     pay.dirty = false;
     toast(paypal ? 'Saved — students can now pay with PayPal' : 'Saved. Add your PayPal account so students can pay.');
   } catch (err) { toast(errorText(err), 'bad'); }
@@ -502,6 +608,7 @@ async function loadStudents() {
   drawChatList();
   drawHomeworkTargets();
   drawHomeworkAdmin();
+  if (pay.month) drawPaid();
 }
 function filteredStudents() {
   const q = $('#student-search').value.trim().toLowerCase();

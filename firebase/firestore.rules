@@ -41,6 +41,7 @@ service cloud.firestore {
       allow update: if isCoach()
         || (signedIn() && request.auth.uid == uid && request.resource.data.role == resource.data.role
             && (resource.data.role == 'pending' || request.resource.data.get('grade', 'none') == resource.data.get('grade', 'none'))
+            && request.resource.data.get('feesExempt', false) == resource.data.get('feesExempt', false)
             && request.resource.data.get('pushTokens', []).size() <= 20);
       allow delete: if isCoach() || (signedIn() && request.auth.uid == uid);
     }
@@ -102,6 +103,16 @@ service cloud.firestore {
     }
     match /coachSessions/{uid} {
       allow read: if signedIn() && request.auth.uid == uid;
+    }
+
+    // Payment records: Sensei adds them (cash etc.) and the paypalIpn function adds PayPal ones.
+    // Students can read their own.
+    match /payments/{id} {
+      allow read: if isCoach() || (signedIn() && resource.data.uid == request.auth.uid);
+      allow create, update: if isCoach() && request.resource.data.amount is number && request.resource.data.month is string;
+      allow delete: if isCoach();
+    }
+
     // Fees and PayPal account for the student app's Pay page: Sensei sets them.
     match /settings/payments {
       allow read: if signedIn();
