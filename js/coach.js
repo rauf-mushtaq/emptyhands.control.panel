@@ -2,11 +2,11 @@ import { backend, DEMO, isCoach, errorText } from './backend.js';
 import { OWNER_EMAILS, STUDENT_URL } from './config.js';
 import {
   $, $$, esc, GRADES, DISCIPLINES, DOJOS, AUDIENCES, renderYear, legendHTML, loadCalendar, calendarYears,
-  noticeIsFor, longDate, timeAgo, keyOf, download, toast, busy, messageHTML,
+  noticeIsFor, homeworkIsFor, longDate, shortDate, timeAgo, keyOf, download, toast, busy, messageHTML,
 } from './common.js';
 
 let api;
-const state = { user: null, students: [], notices: [], requests: null, chats: [], open: null, thread: [], view: 'requests', stops: [], stopThread: null };
+const state = { user: null, students: [], notices: [], requests: null, chats: [], open: null, thread: [], view: 'requests', stops: [], stopThread: null, cm: 'private', group: [], journal: [], homework: [] };
 const ed = { year: new Date().getFullYear(), days: {}, timings: [], pdf: '', dirty: false, published: false };
 const NAME_KEY = 'eh-coach-name';
 const savedName = () => { try { return localStorage.getItem(NAME_KEY) || ''; } catch { return ''; } };
@@ -21,7 +21,8 @@ function show(id) {
   $('#signout').hidden = !inside;
   $$('#coach-tabs button').forEach(b => b.toggleAttribute('aria-current', b.dataset.go === id));
   if (inside) state.view = id;
-  if (id === 'menu') { drawChatList(); if (state.open) markOpenRead(); }
+  if (id === 'menu') { drawChatList(); drawChannel(); if (state.open) markOpenRead(); }
+  if (id === 'homework') drawHomeworkAdmin();
 }
 $('#coach-tabs').addEventListener('click', e => {
   const b = e.target.closest('[data-go]');
@@ -90,15 +91,19 @@ async function onAuth(user) {
     show('denied');
     return;
   }
-  $('[name=from]').value = savedName();
+  $('#form-notice [name=from]').value = savedName();
   $('#reply-from').value = savedName();
+  $('#form-homework').from.value = savedName();
+  state.stops.push(api.watchChannel('group', list => { state.group = list; drawChannel(); }));
+  state.stops.push(api.watchChannel('journal', list => { state.journal = list; drawChannel(); }));
+  state.stops.push(api.watchHomework(list => { state.homework = list; drawHomeworkAdmin(); }));
   state.stops.push(api.watchNotifications(list => { state.notices = list; drawSent(); }));
   state.stops.push(api.watchRequests(onRequests));
   state.stops.push(api.watchChats(list => { state.chats = list; drawChatList(); drawMenuCount(); }));
   await loadStudents();
   await loadYear(ed.year);
   const start = location.hash.slice(1);
-  const chosen = ['requests', 'menu', 'notices', 'students', 'calendar', 'coaches'].includes(start);
+  const chosen = ['requests', 'menu', 'notices', 'homework', 'students', 'calendar', 'coaches'].includes(start);
   show(chosen ? start : (state.requests || []).length ? 'requests' : 'menu');
   // The request list may load after this; if there are requests waiting, open on them.
   state.autoStart = !chosen;
@@ -166,7 +171,107 @@ const unreadChat = c => c && c.lastFrom === 'student' && (c.lastAt || 0) > (c.co
 function drawMenuCount() {
   const n = state.chats.filter(unreadChat).length;
   $('#menu-count').textContent = n || '';
+  $('[data-cm=private] .dot').hidden = !n;
 }
+
+// Group chat and training journal: everyone can see them; Sensei can delete any message.
+const CM_INTRO = {
+  group: 'Group chat for every accepted student, their family and Sensei. Your messages show in bold.',
+  journal: 'Students share what they’ve practised. Reply to encourage them — your messages show in bold.',
+};
+$('.menu-switch').addEventListener('click', e => {
+  const b = e.target.closest('[data-cm]');
+  if (!b) return;
+  state.cm = b.dataset.cm;
+  $$('.menu-switch [data-cm]').forEach(x => x.setAttribute('aria-selected', x === b));
+  drawChannel();
+});
+function drawChannel() {
+  const ch = state.cm;
+  $('#menu-layout').hidden = ch !== 'private';
+  $('#channel-pane').hidden = ch === 'private';
+  if (ch === 'private') return;
+  $('#channel-intro').textContent = CM_INTRO[ch];
+  $('#channel-text').placeholder = ch === 'group' ? 'Write to everyone…' : 'Reply in the training journal…';
+  const feed = $('#channel-feed');
+  feed.innerHTML = state[ch].length ? state[ch].map(m => messageHTML(m, m.from === 'coach', true)).join('')
+    : '<p class="muted fine center">Nothing here yet.</p>';
+  feed.scrollTop = feed.scrollHeight;
+}
+$('#channel-feed').addEventListener('click', async e => {
+  const b = e.target.closest('[data-delmsg]');
+  if (!b || !confirm('Delete this message for everyone?')) return;
+  try { await api.deleteChannelMessage(state.cm, b.dataset.delmsg); } catch (err) { toast(errorText(err), 'bad'); }
+});
+const channelText = $('#channel-text');
+channelText.addEventListener('input', () => { channelText.style.height = 'auto'; channelText.style.height = Math.min(channelText.scrollHeight, 160) + 'px'; });
+channelText.addEventListener('keydown', e => { if (e.key === 'Enter' && !e.shiftKey && matchMedia('(pointer: fine)').matches) { e.preventDefault(); $('#form-channel').requestSubmit(); } });
+$('#form-channel').addEventListener('submit', async e => {
+  e.preventDefault();
+  const text = channelText.value.trim();
+  if (!text || state.cm === 'private') return;
+  const author = $('#reply-from').value.trim() || savedName() || 'Sensei';
+  await busy(e.target.querySelector('[type=submit]'), async () => {
+    try {
+      await api.postChannel(state.cm, { text, from: 'coach', author, uid: state.user.uid });
+      channelText.value = ''; channelText.style.height = 'auto';
+    } catch (err) { toast(errorText(err), 'bad'); }
+  });
+});
+
+// ---- homework ----
+function drawHomeworkTargets() {
+  const sel = $('#hw-target');
+  const keep = sel.value;
+  const students = state.students.filter(s => s.role === 'student');
+  sel.innerHTML = '<optgroup label="Groups">' + Object.entries(AUDIENCES).map(([k, v]) => `<option value="a:${k}">${v}</option>`).join('') + '</optgroup>'
+    + (students.length ? '<optgroup label="One student">' + students.map(s => `<option value="s:${esc(s.id)}">${esc(s.name)}</option>`).join('') + '</optgroup>' : '');
+  if ([...sel.options].some(o => o.value === keep)) sel.value = keep;
+}
+function hwTargets(h) { return state.students.filter(s => s.role === 'student' && homeworkIsFor(h, s.id, s)); }
+function drawHomeworkAdmin() {
+  const box = $('#hw-admin');
+  if (!box) return;
+  box.innerHTML = state.homework.length ? state.homework.map(h => {
+    const who = hwTargets(h);
+    const done = who.filter(s => (s.homeworkDone || {})[h.id]);
+    const todo = who.filter(s => !(s.homeworkDone || {})[h.id]);
+    const pct = who.length ? Math.round(done.length / who.length * 100) : 0;
+    const forWho = h.student ? (state.students.find(s => s.id === h.student) || {}).name || 'One student' : AUDIENCES[h.audience] || 'Everyone';
+    return `<article class="card">
+      <header class="notice-head"><span class="aud eyebrow">${esc(forWho)}${h.due ? ' · due ' + shortDate(h.due) : ''}</span></header>
+      <h3>${esc(h.title)}</h3>
+      ${h.details ? `<p class="muted">${esc(h.details).replace(/\n/g, '<br>')}</p>` : ''}
+      <div class="hw-progress" aria-hidden="true"><span style="width:${pct}%"></span></div>
+      <p class="fine"><b>${done.length} of ${who.length}</b> done · set ${timeAgo(h.createdAt)}${h.from ? ' by ' + esc(h.from) : ''}</p>
+      ${who.length ? `<details><summary>Who’s done it</summary><ul>
+        ${done.map(s => `<li class="done">✓ ${esc(s.name)}</li>`).join('')}${todo.map(s => `<li>${esc(s.name)} — not yet</li>`).join('')}</ul></details>` : ''}
+      <p class="row-actions"><button class="linkish danger" data-delhw="${esc(h.id)}">Delete</button></p>
+    </article>`;
+  }).join('') : '<div class="empty"><span aria-hidden="true">宿</span><p>No homework set yet.</p></div>';
+}
+$('#hw-admin').addEventListener('click', async e => {
+  const b = e.target.closest('[data-delhw]');
+  if (!b || !confirm('Delete this homework for everyone?')) return;
+  try { await api.deleteHomework(b.dataset.delhw); toast('Homework deleted'); } catch (err) { toast(errorText(err), 'bad'); }
+});
+$('#refresh-hw').addEventListener('click', e => busy(e.currentTarget, loadStudents));
+$('#form-homework').addEventListener('submit', async e => {
+  e.preventDefault();
+  const form = e.target;
+  showError(form);
+  const [kind, val] = form.target.value.split(':');
+  const h = { title: form.title.value.trim(), details: form.details.value.trim(), due: form.due.value || '', from: form.from.value.trim(), ...(kind === 's' ? { student: val, audience: 'all' } : { audience: val }) };
+  if (!h.title) return showError(form, 'Please say what the homework is.');
+  await busy(form.querySelector('[type=submit]'), async () => {
+    try {
+      await api.addHomework(h);
+      try { localStorage.setItem(NAME_KEY, h.from); } catch { /* storage blocked */ }
+      form.title.value = ''; form.details.value = ''; form.due.value = '';
+      toast('Homework sent — ' + hwTargets({ ...h, id: '' }).length + ' student(s) will see it');
+    } catch (err) { showError(form, errorText(err)); }
+  });
+});
 function drawChatList() {
   const q = $('#chat-search').value.trim().toLowerCase();
   const chats = Object.fromEntries(state.chats.map(c => [c.id, c]));
@@ -293,6 +398,8 @@ async function loadStudents() {
   drawStudents();
   drawReach();
   drawChatList();
+  drawHomeworkTargets();
+  drawHomeworkAdmin();
 }
 function filteredStudents() {
   const q = $('#student-search').value.trim().toLowerCase();

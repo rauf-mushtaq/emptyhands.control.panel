@@ -68,6 +68,11 @@ export function timeAgo(ms) {
   return new Date(ms).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
 }
 
+// Who a homework item is for: one student, or a group like a notice.
+export function homeworkIsFor(h, uid, p) {
+  return h.student ? h.student === uid : noticeIsFor(h, p);
+}
+
 // Which calendar entries matter to this student.
 export function isRelevant(type, profile) {
   if (!profile) return true;
@@ -131,11 +136,12 @@ export function renderYear(el, year, opts = {}) {
   if (opts.onDay) el.onclick = e => { const b = e.target.closest('button.cal-day'); if (b) opts.onDay(b.dataset.key, b); };
 }
 
-// One chat message in the EmptyHands menu. Coach messages are bold; `mine` puts it on the viewer's side.
-export function messageHTML(m, mine) {
-  const who = m.from === 'coach' ? esc(m.author || 'Coach') + ' · Coach' : esc(m.author || 'Student');
+// One chat message in the EmptyHands menu. Sensei's messages are bold; `mine` puts it on the
+// viewer's side; `del` adds a delete button (for moderation or the author's own messages).
+export function messageHTML(m, mine, del) {
+  const who = m.from === 'coach' ? esc(m.author || 'Sensei') + ' · Sensei' : esc(m.author || 'Student');
   return `<div class="msg msg--${m.from === 'coach' ? 'coach' : 'student'}${mine ? ' msg--mine' : ''}">
-    <div class="msg-meta">${who} · ${timeAgo(m.createdAt)}</div>
+    <div class="msg-meta">${who} · ${timeAgo(m.createdAt)}${del ? ` · <button type="button" class="linkish danger" data-delmsg="${esc(m.id)}">Delete</button>` : ''}</div>
     <div class="msg-text">${esc(m.text).replace(/\n/g, '<br>')}</div></div>`;
 }
 

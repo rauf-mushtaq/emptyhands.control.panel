@@ -90,6 +90,21 @@ async function firebaseBackend() {
     },
     markChatRead: (uid, who) => F.setDoc(ref('chats', uid), { [who + 'ReadAt']: Date.now() }, { merge: true }),
 
+    // Shared channels everyone accepted can read: 'group' (group chat) and 'journal' (training journal).
+    watchChannel: (ch, cb) => F.onSnapshot(
+      F.query(F.collection(db, 'channels', ch, 'messages'), F.orderBy('createdAt'), F.limitToLast(300)),
+      snap => cb(rows(snap).map(m => ({ ...m, createdAt: millis(m.createdAt) }))),
+      err => console.error(err)),
+    postChannel: (ch, m) => F.addDoc(F.collection(db, 'channels', ch, 'messages'), { ...m, createdAt: F.serverTimestamp() }),
+    deleteChannelMessage: (ch, id) => F.deleteDoc(ref('channels', ch, 'messages', id)),
+
+    // Sensei's homework. Each student ticks items off in users/{uid}.homeworkDone.
+    watchHomework: cb => F.onSnapshot(F.query(F.collection(db, 'homework'), F.orderBy('createdAt', 'desc'), F.limit(200)),
+      snap => cb(rows(snap).map(h => ({ ...h, createdAt: millis(h.createdAt) }))), err => console.error(err)),
+    addHomework: h => F.addDoc(F.collection(db, 'homework'), { ...h, createdAt: F.serverTimestamp() }),
+    deleteHomework: id => F.deleteDoc(ref('homework', id)),
+    setHomeworkDone: (uid, id, done) => F.updateDoc(ref('users', uid), new F.FieldPath('homeworkDone', id), done ? Date.now() : F.deleteField()),
+
     watchNotifications: cb => F.onSnapshot(
       F.query(F.collection(db, 'notifications'), F.orderBy('createdAt', 'desc'), F.limit(200)),
       snap => cb(rows(snap).map(n => ({ ...n, createdAt: millis(n.createdAt) }))),
@@ -194,6 +209,19 @@ function demoBackend() {
       chats.put(uid, { ...(chats.all()[uid] || {}), name: studentName, lastAt: now, lastFrom: m.from, lastText: m.text.slice(0, 140), [m.from + 'ReadAt']: now });
     },
     markChatRead: async (uid, who) => chats.put(uid, { ...(chats.all()[uid] || {}), [who + 'ReadAt']: Date.now() }),
+
+    watchChannel: (ch, cb) => watch('ch:' + ch, () => load('ch:' + ch, []), cb),
+    postChannel: async (ch, m) => { const now = Date.now(); save('ch:' + ch, [...load('ch:' + ch, []), { ...m, id: 'c' + now.toString(36) + Math.random().toString(36).slice(2, 5), createdAt: now }]); },
+    deleteChannelMessage: async (ch, id) => save('ch:' + ch, load('ch:' + ch, []).filter(m => m.id !== id)),
+
+    watchHomework: cb => watch('homework', () => load('homework', []).sort((a, b) => b.createdAt - a.createdAt), cb),
+    addHomework: async h => { const now = Date.now(); save('homework', [...load('homework', []), { ...h, id: 'h' + now.toString(36), createdAt: now }]); },
+    deleteHomework: async id => save('homework', load('homework', []).filter(h => h.id !== id)),
+    setHomeworkDone: async (uid, id, done) => {
+      const u = users.all()[uid] || {}; const d = { ...(u.homeworkDone || {}) };
+      if (done) d[id] = Date.now(); else delete d[id];
+      users.put(uid, { ...u, homeworkDone: d });
+    },
 
     watchNotifications: cb => { noteCbs.add(cb); setTimeout(() => cb(notes())); return () => noteCbs.delete(cb); },
     addNotification: async n => {

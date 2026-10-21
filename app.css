@@ -371,3 +371,59 @@ ul.plain li:first-child { border-top: 0; }
   .chat-back { display: inline; }
   .chat-head { flex-direction: column; gap: 4px; }
 }
+
+/* Student: name chip opens the profile */
+button.app-user { border: 0; cursor: pointer; }
+button.app-user[aria-current] { background: var(--ink); color: var(--paper); }
+
+/* Tab bar with five tabs */
+.tabbar { grid-template-columns: repeat(5, 1fr); }
+.tabbar button { font-size: .7rem; }
+@media (min-width: 900px) { .tabbar { width: 560px; } }
+
+/* EmptyHands menu: channels + recommended channel */
+.menu-grid { display: grid; gap: 18px; align-items: start; }
+@media (min-width: 900px) { .menu-grid { grid-template-columns: 1fr 260px; } .recommend { position: sticky; top: 84px; } }
+.channels { display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; margin: 0 -16px 10px; padding: 0 16px 2px; }
+.channels button { flex: none; border: 1px solid var(--paper-3); background: #fff; border-radius: 99px; padding: 8px 14px; font-weight: 700; font-size: .88rem; cursor: pointer; position: relative; color: var(--ink-2); }
+.channels button[aria-selected=true] { background: var(--ink); border-color: var(--ink); color: var(--paper); }
+.channels .dot { position: absolute; top: 4px; right: 6px; width: 8px; height: 8px; border-radius: 50%; background: var(--seal); }
+.recommend { border-top: 4px solid var(--seal); }
+.recommend h2 { font-size: 1.15rem; }
+.recommend .btn::before { content: "▶"; font-size: .7rem; }
+@media (max-width: 899px) {
+  .recommend { order: -1; display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-top-width: 0; border-left: 4px solid var(--seal); }
+  .recommend .eyebrow, .recommend p.muted { display: none; }
+  .recommend h2 { margin: 0; flex: 1; font-size: .95rem; }
+  .recommend h2::before { content: "Recommended: "; font-family: var(--sans); font-size: .75rem; text-transform: uppercase; letter-spacing: .08em; color: var(--bronze); display: block; }
+  .recommend .btn { min-height: 34px; padding: 4px 12px; font-size: .82rem; }
+}
+
+/* Homework */
+.homework { display: grid; gap: 10px; }
+.hw { display: flex; flex-direction: row; gap: 14px; align-items: flex-start; cursor: pointer; font-weight: 400; font-size: 1rem; }
+.hw input { position: absolute; opacity: 0; }
+.hw-tick { flex: none; width: 28px; height: 28px; border: 2px solid var(--bronze-2); border-radius: 8px; display: grid; place-items: center; margin-top: 2px; transition: background .15s; }
+.hw input:checked + .hw-tick { background: var(--ok); border-color: var(--ok); }
+.hw input:checked + .hw-tick::after { content: ""; width: 7px; height: 13px; border: solid #fff; border-width: 0 3px 3px 0; transform: translateY(-2px) rotate(45deg); }
+.hw input:focus-visible + .hw-tick { outline: 2px solid var(--seal); outline-offset: 2px; }
+.hw-body { display: grid; gap: 4px; }
+.hw-details { color: var(--ink-2); }
+.hw.is-done b { text-decoration: line-through; color: var(--ink-3); }
+.hw.is-done { background: var(--paper-2); }
+.hw.is-late small { color: var(--seal-2); font-weight: 700; }
+
+/* Syllabus */
+.syllabus { display: grid; gap: 14px; }
+.syllabus img { width: 100%; height: auto; border-radius: var(--radius); border: 1px solid var(--line); background: #fff; box-shadow: 0 10px 30px -20px rgba(0, 0, 0, .4); }
+.is-native #syl-pdf { display: none; }
+
+/* Coach panel: channel switcher and homework */
+.menu-switch { margin: 0 0 14px; padding: 0; }
+.menu-switch button { flex: none; }
+.hw-admin { display: grid; gap: 12px; }
+.hw-admin .hw-progress { height: 8px; background: var(--paper-2); border-radius: 99px; overflow: hidden; margin: 6px 0; }
+.hw-admin .hw-progress span { display: block; height: 100%; background: var(--ok); }
+.hw-admin details summary { cursor: pointer; font-weight: 700; font-size: .9rem; }
+.hw-admin ul { margin: 6px 0 0; padding-left: 18px; font-size: .9rem; }
+.hw-admin .done { color: var(--ok); }

@@ -58,6 +58,25 @@ service cloud.firestore {
       }
     }
 
+    // Group chat and training journal: every accepted student and Sensei can read and post.
+    // Only Sensei can send notices (above). Authors and Sensei can delete messages.
+    match /channels/{ch}/messages/{id} {
+      allow read: if ch in ['group', 'journal'] && (isStudent() || isCoach());
+      allow create: if ch in ['group', 'journal']
+        && request.resource.data.text is string
+        && request.resource.data.text.size() > 0 && request.resource.data.text.size() <= 2000
+        && ((isCoach() && request.resource.data.from == 'coach')
+          || (isStudent() && request.resource.data.from == 'student' && request.resource.data.uid == request.auth.uid));
+      allow delete: if isCoach() || (isStudent() && resource.data.uid == request.auth.uid);
+    }
+
+    // Sensei's homework: Sensei sets it; students tick it off in their own users/{uid}.homeworkDone.
+    match /homework/{id} {
+      allow read: if isStudent() || isCoach();
+      allow write: if isCoach() && request.resource.data.title is string && request.resource.data.title.size() <= 120;
+      allow delete: if isCoach();
+    }
+
     // Yearly calendars: public to read, coaches publish.
     match /calendars/{year} {
       allow read: if true;

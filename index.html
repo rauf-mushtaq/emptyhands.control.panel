@@ -22,6 +22,7 @@
     <button data-go="requests">Requests <span class="count" id="request-count"></span></button>
     <button data-go="menu">EmptyHands menu <span class="count" id="menu-count"></span></button>
     <button data-go="notices">Notices</button>
+    <button data-go="homework">Homework</button>
     <button data-go="students">Students <span class="count" id="student-count"></span></button>
     <button data-go="calendar">Calendar</button>
     <button data-go="coaches">Coaches</button>
@@ -78,6 +79,22 @@
 
   <!-- EmptyHands menu: one private chat per student -->
   <section class="view" id="view-menu" hidden>
+    <div class="channels menu-switch" role="tablist" aria-label="EmptyHands menu">
+      <button type="button" role="tab" data-cm="private" aria-selected="true">Private messages<span class="dot" hidden></span></button>
+      <button type="button" role="tab" data-cm="group" aria-selected="false">Group chat</button>
+      <button type="button" role="tab" data-cm="journal" aria-selected="false">Training journal</button>
+    </div>
+    <section class="card chat-pane" id="channel-pane" hidden>
+      <p class="muted fine" id="channel-intro"></p>
+      <div class="chat-feed chat-feed--scroll" id="channel-feed" aria-live="polite"></div>
+      <form class="chat-compose" id="form-channel" novalidate>
+        <div class="chat-row">
+          <label class="sr-only" for="channel-text">Message</label>
+          <textarea id="channel-text" rows="1" maxlength="2000" placeholder="Write to everyone…" required></textarea>
+          <button class="btn btn--seal" type="submit">Send</button>
+        </div>
+      </form>
+    </section>
     <div class="menu-layout" id="menu-layout">
       <aside class="chat-list card">
         <input type="search" id="chat-search" placeholder="Find a student…" aria-label="Find a student">
@@ -101,6 +118,26 @@
           </form>
         </div>
       </section>
+    </div>
+  </section>
+
+  <!-- Homework -->
+  <section class="view" id="view-homework" hidden>
+    <div class="coach-cols">
+      <form class="card stack" id="form-homework" novalidate>
+        <h2>Set homework</h2>
+        <label>For<select name="target" id="hw-target"></select></label>
+        <label>Homework<input name="title" maxlength="120" required placeholder="e.g. Practise Heian Nidan 5 times"></label>
+        <label>Details <small>(optional)</small><textarea name="details" rows="4" maxlength="2000" placeholder="Anything to focus on"></textarea></label>
+        <label>Due date <small>(optional)</small><input name="due" type="date"></label>
+        <label>Signed<input name="from" maxlength="60" placeholder="e.g. Azeem Sensei"></label>
+        <p class="form-error" hidden></p>
+        <button class="btn btn--seal" type="submit">Send homework</button>
+      </form>
+      <div>
+        <div class="card-head"><h2>Homework set</h2><button class="btn btn--ghost btn--sm" id="refresh-hw" type="button">Refresh ticks</button></div>
+        <div class="hw-admin" id="hw-admin"></div>
+      </div>
     </div>
   </section>
 

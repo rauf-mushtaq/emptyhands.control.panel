@@ -22,3 +22,11 @@ export const OWNER_EMAILS = ['info@emptyhands.co.uk'];
 export const SITE_URL = 'https://rauf-mushtaq.github.io/emptyhands/';
 export const STUDENT_URL = 'https://rauf-mushtaq.github.io/emptyhands.student/';
 export const COACH_URL = 'https://rauf-mushtaq.github.io/emptyhands.control.panel/';
+
+// 4. The recommended YouTube channel shown in the student app's EmptyHands menu.
+//    Paste the channel's own address here (e.g. https://www.youtube.com/@ChannelName).
+export const RECOMMENDED = {
+  name: 'Shotokan Karate Academy',
+  about: 'Watch Kanazawa Sensei perform the kata to help your practice at home.',
+  url: 'https://www.youtube.com/results?search_query=Shotokan+Karate+Academy+Kanazawa+kata',
+};
