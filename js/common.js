@@ -4,12 +4,12 @@ import { CALENDAR_2026 } from './calendar-data.js';
 export const TYPES = {
   training: { label: 'Dojo training', note: 'Thursday classes at the Ilford dojo' },
   closed: { label: 'Dojo closed', note: 'No classes on this date' },
-  blackbelt: { label: 'Black belt class', note: 'Invite only — Epping dojo' },
+  blackbelt: { label: 'Black belt class', note: 'Epping dojo (invite only)' },
   grading: { label: 'Grading & workshop', note: 'Grading or workshop date' },
 };
 
 export const DISCIPLINES = { karate: 'Karate', taichi: 'Tai Chi', yoga: 'Yoga' };
-export const DOJOS = { ilford: 'Ilford', epping: 'Epping', both: 'Both dojos' };
+export const DOJOS = { ilford: 'Ilford', epping: 'Epping (invite only)', both: 'Both dojos' };
 // Karate belts, lowest first. 'dan' (black belt) is what black-belt dates and notices check for.
 export const GRADES = {
   none: 'No belt',
@@ -30,7 +30,7 @@ export const AUDIENCES = {
   taichi: 'Tai Chi students',
   yoga: 'Yoga students',
   ilford: 'Ilford dojo students',
-  epping: 'Epping dojo students',
+  epping: 'Epping dojo students (invite only)',
   blackbelt: 'Black belts',
 };
 
