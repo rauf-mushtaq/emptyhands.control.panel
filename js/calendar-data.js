@@ -10,7 +10,7 @@ export const DEFAULT_TIMINGS = [
   'Beginner / Intermediate Karate: 7pm – 8pm',
   'Advanced Karate: 8pm – 9pm',
   'Yoga: 8pm – 9pm',
-  'EPPING DOJO (Tuesday & Sunday) — Jack Silley Pavilion, Epping CM16 6SS',
+  'BLACK BELT CLASSES & WORKSHOPS (invite only)',
   'Black Belt classes: 6:30pm – 8:30pm',
   'Sunday workshops: 12:30pm – 4pm',
 ];
