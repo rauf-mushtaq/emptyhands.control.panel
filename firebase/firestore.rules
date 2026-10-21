@@ -85,6 +85,12 @@ service cloud.firestore {
       allow write: if isCoach();
     }
 
+    // Fees and PayPal account for the student app's Pay page: Sensei sets them.
+    match /settings/payments {
+      allow read: if signedIn();
+      allow write: if isCoach();
+    }
+
     // Coach list: coaches manage it.
     match /settings/coaches {
       allow read: if signedIn();
