@@ -29,26 +29,52 @@ service cloud.firestore {
     function isStudent() {
       return signedIn() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'student';
     }
+    // The notice/homework groups this student belongs to (mirrors myAudiences() in js/common.js).
+    function myAudiences() {
+      let p = get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+      let d = p.get('dojo', '');
+      return ['all'].concat(p.get('disciplines', []))
+        .concat(d == 'ilford' || d == 'both' ? ['ilford'] : [])
+        .concat(d == 'epping' || d == 'both' ? ['epping'] : [])
+        .concat(p.get('grade', '') == 'dan' ? ['blackbelt'] : []);
+    }
+
+    // What a student may put in their own profile.
+    function validProfile(d) {
+      return d.name is string && d.name.size() > 0 && d.name.size() <= 120
+        && d.get('guardian', '') is string && d.get('guardian', '').size() <= 120
+        && d.get('phone', '') is string && d.get('phone', '').size() <= 40
+        && d.disciplines is list && d.disciplines.size() <= 3 && d.disciplines.hasOnly(['karate', 'taichi', 'yoga'])
+        && d.dojo in ['ilford', 'epping', 'both']
+        && d.grade in ['none', 'red', 'orange', 'yellow', 'green', 'purple', 'purple1', 'brown', 'brown1', 'brown2', 'dan'];
+    }
 
     // Student profiles. A new sign-up is a join request (role 'pending') until a coach
     // accepts it (role 'student') or declines it. Students can't change their own role,
     // and once accepted only Sensei can change their belt (grade).
     match /users/{uid} {
       allow read: if signedIn() && (request.auth.uid == uid || isCoach());
+      // Sign-up: only the normal profile fields, as a join request.
       allow create: if signedIn() && request.auth.uid == uid
+        && request.resource.data.keys().hasOnly(['name', 'guardian', 'phone', 'disciplines', 'dojo', 'grade', 'email', 'role', 'createdAt', 'lastRead'])
         && request.resource.data.role == 'pending'
-        && request.resource.data.name is string && request.resource.data.name.size() <= 120;
+        && request.resource.data.email == request.auth.token.email
+        && validProfile(request.resource.data);
+      // Students can only change their own details and app state, never their role, exemption
+      // or reminders; and once accepted, not their belt.
       allow update: if isCoach()
-        || (signedIn() && request.auth.uid == uid && request.resource.data.role == resource.data.role
-            && (resource.data.role == 'pending' || request.resource.data.get('grade', 'none') == resource.data.get('grade', 'none'))
-            && request.resource.data.get('feesExempt', false) == resource.data.get('feesExempt', false)
+        || (signedIn() && request.auth.uid == uid
+            && request.resource.data.diff(resource.data).affectedKeys()
+                 .hasOnly(['name', 'guardian', 'phone', 'disciplines', 'dojo', 'grade', 'lastRead', 'seen', 'pushTokens', 'homeworkDone'])
+            && (resource.data.role == 'pending' || !request.resource.data.diff(resource.data).affectedKeys().hasAny(['grade']))
+            && validProfile(request.resource.data)
             && request.resource.data.get('pushTokens', []).size() <= 20);
       allow delete: if isCoach() || (signedIn() && request.auth.uid == uid);
     }
 
-    // Notices: registered students read, coaches write.
+    // Notices: each accepted student reads only the ones for their groups; Sensei writes.
     match /notifications/{id} {
-      allow read: if isStudent() || isCoach();
+      allow read: if isCoach() || (isStudent() && resource.data.audience in myAudiences());
       allow create, update: if isCoach()
         && request.resource.data.title is string && request.resource.data.title.size() <= 120
         && request.resource.data.body is string && request.resource.data.body.size() <= 4000;
@@ -57,14 +83,25 @@ service cloud.firestore {
 
     // EmptyHands menu: one private thread per accepted student, shared by all coaches.
     function inThread(uid) { return isCoach() || (signedIn() && request.auth.uid == uid && isStudent()); }
+    // The chat summary (for Sensei's list): students may only update their own side of it.
+    function studentChatWrite(uid, keys) {
+      return signedIn() && request.auth.uid == uid && isStudent()
+        && keys.hasOnly(['name', 'lastAt', 'lastFrom', 'lastText', 'studentReadAt'])
+        && request.resource.data.get('lastFrom', 'student') == 'student';
+    }
     match /chats/{uid} {
-      allow read, write: if inThread(uid);
+      allow read: if inThread(uid);
+      allow write: if isCoach();
+      allow create: if studentChatWrite(uid, request.resource.data.keys());
+      allow update: if studentChatWrite(uid, request.resource.data.diff(resource.data).affectedKeys());
       match /messages/{id} {
         allow read: if inThread(uid);
         allow create: if request.resource.data.text is string
           && request.resource.data.text.size() > 0 && request.resource.data.text.size() <= 2000
+          && request.resource.data.get('author', '') is string && request.resource.data.get('author', '').size() <= 80
           && ((isCoach() && request.resource.data.from == 'coach')
-            || (signedIn() && request.auth.uid == uid && isStudent() && request.resource.data.from == 'student'));
+            || (signedIn() && request.auth.uid == uid && isStudent() && request.resource.data.from == 'student'
+                && request.resource.data.uid == request.auth.uid));
         allow delete: if isCoach();
       }
     }
@@ -81,9 +118,12 @@ service cloud.firestore {
       allow delete: if isCoach() || (isStudent() && resource.data.uid == request.auth.uid);
     }
 
-    // Sensei's homework: Sensei sets it; students tick it off in their own users/{uid}.homeworkDone.
+    // Sensei's homework: for one student (student = their uid) or a group (student = '').
+    // Students read only their own; they tick it off in their own users/{uid}.homeworkDone.
     match /homework/{id} {
-      allow read: if isStudent() || isCoach();
+      allow read: if isCoach()
+        || (isStudent() && (resource.data.student == request.auth.uid
+            || (resource.data.student == '' && resource.data.audience in myAudiences())));
       allow write: if isCoach() && request.resource.data.title is string && request.resource.data.title.size() <= 120;
       allow delete: if isCoach();
     }
