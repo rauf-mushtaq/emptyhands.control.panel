@@ -61,7 +61,7 @@ small { color: var(--ink-3); font-weight: 400; }
   background: rgba(246, 242, 234, .92); backdrop-filter: blur(10px); border-bottom: 1px solid var(--line);
 }
 .app-top--dark { background: var(--night); color: var(--paper); border-color: transparent; }
-.app-brand img { height: 40px; width: auto; }
+.app-brand img { height: 44px; width: auto; border-radius: 8px; }
 .app-title { font-family: var(--serif); font-weight: 600; font-size: 1.05rem; padding-left: 12px; border-left: 1px solid currentColor; opacity: .85; }
 .app-user { margin-left: auto; font-weight: 700; font-size: .9rem; background: var(--paper-2); padding: 4px 12px; border-radius: 99px; }
 
