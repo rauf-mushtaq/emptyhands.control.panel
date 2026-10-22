@@ -490,3 +490,13 @@ a.fee-option:active { transform: scale(.98); }
 .fee-option.is-application { background: var(--paper-2); }
 .fee-option.is-application > b { font-size: 1.15rem; }
 @media (max-width: 360px) { .fee-options { grid-template-columns: 1fr; } }
+
+/* Add to home screen */
+.install-head { display: flex; align-items: center; gap: 14px; }
+.install-head img { border-radius: 14px; box-shadow: 0 6px 16px -8px rgba(0, 0, 0, .4); }
+.install-head h2 { margin: 0; }
+.install-steps { margin: 0; padding-left: 22px; display: grid; gap: 10px; font-size: 1.02rem; }
+.ios-share { display: inline-block; width: 18px; height: 22px; vertical-align: -4px; border: 2px solid var(--ink); border-top: 0; border-radius: 0 0 3px 3px; position: relative; margin: 0 2px; }
+.ios-share::before { content: ""; position: absolute; left: 50%; top: -9px; width: 2px; height: 16px; background: var(--ink); transform: translateX(-50%); }
+.ios-share::after { content: ""; position: absolute; left: 50%; top: -9px; width: 8px; height: 8px; border-left: 2px solid var(--ink); border-top: 2px solid var(--ink); transform: translateX(-50%) rotate(45deg); }
+.install-btn { margin-top: 4px; }
