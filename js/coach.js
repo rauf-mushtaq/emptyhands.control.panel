@@ -119,6 +119,11 @@ async function onAuth(user) {
   state.requests = null;
   state.user = user;
   if (!user) { show('auth'); return; }
+  // A device that signed in before the email was verified remembers the old status; refresh it.
+  if (!user.emailVerified && !DEMO) {
+    user = await api.reloadUser().catch(() => user);
+    state.user = user;
+  }
   if (!(await isCoach(user))) {
     const listed = OWNER_EMAILS.map(x => x.toLowerCase()).includes(user.email) || (await api.getCoaches().catch(() => [])).includes(user.email);
     $('#denied-why').innerHTML = !user.emailVerified && listed
@@ -532,7 +537,11 @@ function markOpenRead() {
   const c = state.chats.find(x => x.id === state.open);
   if (state.view === 'menu' && !document.hidden && unreadChat(c)) api.markChatRead(state.open, 'coach').catch(console.warn);
 }
-document.addEventListener('visibilitychange', () => { if (state.open) markOpenRead(); });
+document.addEventListener('visibilitychange', () => {
+  if (state.open) markOpenRead();
+  // Back from tapping the verification link: let them straight in.
+  if (!document.hidden && state.user && !state.user.emailVerified && !$('#view-denied').hidden) onAuth(state.user);
+});
 
 const replyText = $('#reply-text');
 replyText.addEventListener('input', () => { replyText.style.height = 'auto'; replyText.style.height = Math.min(replyText.scrollHeight, 160) + 'px'; });
