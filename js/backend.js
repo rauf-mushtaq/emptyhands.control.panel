@@ -97,6 +97,9 @@ async function firebaseBackend() {
       err => console.error(err)),
     postChannel: (ch, m) => F.addDoc(F.collection(db, 'channels', ch, 'messages'), { ...m, createdAt: F.serverTimestamp() }),
     deleteChannelMessage: (ch, id) => F.deleteDoc(ref('channels', ch, 'messages', id)),
+    // Authors can change what they wrote; it's then marked as edited.
+    editChannelMessage: (ch, id, text) => F.updateDoc(ref('channels', ch, 'messages', id), { text, editedAt: F.serverTimestamp() }),
+    editMessage: (uid, id, text) => F.updateDoc(ref('chats', uid, 'messages', id), { text, editedAt: F.serverTimestamp() }),
 
     // Sensei's homework. Each student ticks items off in users/{uid}.homeworkDone.
     // Sensei sees all homework. A student (uid + their groups) only asks for what the security
@@ -247,6 +250,8 @@ function demoBackend() {
     watchChannel: (ch, cb) => watch('ch:' + ch, () => load('ch:' + ch, []), cb),
     postChannel: async (ch, m) => { const now = Date.now(); save('ch:' + ch, [...load('ch:' + ch, []), { ...m, id: 'c' + now.toString(36) + Math.random().toString(36).slice(2, 5), createdAt: now }]); },
     deleteChannelMessage: async (ch, id) => save('ch:' + ch, load('ch:' + ch, []).filter(m => m.id !== id)),
+    editChannelMessage: async (ch, id, text) => save('ch:' + ch, load('ch:' + ch, []).map(m => m.id === id ? { ...m, text, editedAt: Date.now() } : m)),
+    editMessage: async (uid, id, text) => save('msgs:' + uid, load('msgs:' + uid, []).map(m => m.id === id ? { ...m, text, editedAt: Date.now() } : m)),
 
     watchHomework: cb => watch('homework', () => load('homework', []).sort((a, b) => b.createdAt - a.createdAt), cb),
     addHomework: async h => { const now = Date.now(); save('homework', [...load('homework', []), { ...h, id: 'h' + now.toString(36), createdAt: now }]); },

@@ -3,7 +3,7 @@ import { OWNER_EMAILS, STUDENT_URL, COACH_LOGIN_APPROVAL } from './config.js';
 import {
   $, $$, esc, GRADES, DISCIPLINES, DOJOS, AUDIENCES, renderYear, legendHTML, loadCalendar, calendarYears,
   noticeIsFor, homeworkIsFor, DEFAULT_FEES, FEE_GROUPS, FEE_LEVELS, paypalLink, longDate,
-  monthKey, monthName, isMonthly, monthlyFeeFor, money, PAY_METHODS, shortDate, timeAgo, keyOf, download, toast, busy, messageHTML,
+  monthKey, monthName, isMonthly, monthlyFeeFor, money, PAY_METHODS, shortDate, timeAgo, keyOf, download, toast, busy, messageHTML, wireEdits, editing,
 } from './common.js';
 
 let api;
@@ -238,14 +238,22 @@ function drawChannel() {
   $('#channel-intro').textContent = CM_INTRO[ch];
   $('#channel-text').placeholder = ch === 'group' ? 'Write to everyone…' : 'Reply in the training journal…';
   const feed = $('#channel-feed');
-  feed.innerHTML = state[ch].length ? state[ch].map(m => messageHTML(m, m.from === 'coach', true)).join('')
+  feed.innerHTML = state[ch].length ? state[ch].map(m => messageHTML(m, m.from === 'coach', true, mineCoach(m))).join('')
     : '<p class="muted fine center">Nothing here yet.</p>';
-  feed.scrollTop = feed.scrollHeight;
+  if (!editing.id) feed.scrollTop = feed.scrollHeight;
 }
 $('#channel-feed').addEventListener('click', async e => {
   const b = e.target.closest('[data-delmsg]');
   if (!b || !confirm('Delete this message for everyone?')) return;
   try { await api.deleteChannelMessage(state.cm, b.dataset.delmsg); } catch (err) { toast(errorText(err), 'bad'); }
+});
+// Sensei can edit what they wrote themselves.
+const mineCoach = m => m.from === 'coach' && (!m.uid || m.uid === state.user.uid);
+wireEdits($('#channel-feed'), {
+  find: id => (state[state.cm] || []).find(m => m.id === id),
+  save: (id, text) => api.editChannelMessage(state.cm, id, text),
+  redraw: () => drawChannel(),
+  fail: err => toast(errorText(err), 'bad'),
 });
 const channelText = $('#channel-text');
 channelText.addEventListener('input', () => { channelText.style.height = 'auto'; channelText.style.height = Math.min(channelText.scrollHeight, 160) + 'px'; });
@@ -526,12 +534,18 @@ function closeChat() {
   $('#menu-layout').classList.remove('is-open');
   drawChatList();
 }
+wireEdits($('#chat-feed'), {
+  find: id => state.thread.find(m => m.id === id),
+  save: (id, text) => api.editMessage(state.open, id, text),
+  redraw: () => drawThread(),
+  fail: err => toast(errorText(err), 'bad'),
+});
 function drawThread() {
   const feed = $('#chat-feed');
   feed.innerHTML = state.thread.length
-    ? state.thread.map(m => messageHTML(m, m.from === 'coach')).join('')
+    ? state.thread.map(m => messageHTML(m, m.from === 'coach', false, mineCoach(m))).join('')
     : '<p class="muted fine center">No messages yet. Say hello — the student and their family will see it in their EmptyHands menu.</p>';
-  feed.scrollTop = feed.scrollHeight;
+  if (!editing.id) feed.scrollTop = feed.scrollHeight;
 }
 function markOpenRead() {
   const c = state.chats.find(x => x.id === state.open);

@@ -73,6 +73,14 @@ service cloud.firestore {
       allow delete: if isCoach();
     }
 
+    // Editing a sent message: only its text changes (and it's marked as edited).
+    function validEdit() {
+      return request.resource.data.diff(resource.data).affectedKeys().hasOnly(['text', 'editedAt'])
+        && request.resource.data.text is string
+        && request.resource.data.text.size() > 0 && request.resource.data.text.size() <= 2000
+        && request.resource.data.editedAt == request.time;
+    }
+
     // EmptyHands menu: one private thread per accepted student, shared by all coaches.
     function inThread(uid) { return isCoach() || (signedIn() && request.auth.uid == uid && isStudent()); }
     // The chat summary (for Sensei's list): students may only update their own side of it.
@@ -94,12 +102,17 @@ service cloud.firestore {
           && ((isCoach() && request.resource.data.from == 'coach')
             || (signedIn() && request.auth.uid == uid && isStudent() && request.resource.data.from == 'student'
                 && request.resource.data.uid == request.auth.uid));
+        // Sensei edit Sensei messages; the student edits their own.
+        allow update: if validEdit()
+          && ((isCoach() && resource.data.from == 'coach')
+            || (signedIn() && request.auth.uid == uid && isStudent() && resource.data.from == 'student'
+                && resource.data.uid == request.auth.uid));
         allow delete: if isCoach();
       }
     }
 
     // Group chat and training journal: every accepted student and Sensei can read and post.
-    // Only Sensei can send notices (above). Authors and Sensei can delete messages.
+    // Only Sensei can send notices (above). Authors can edit their messages; authors and Sensei can delete them.
     match /channels/{ch}/messages/{id} {
       allow read: if ch in ['group', 'journal'] && (isStudent() || isCoach());
       allow create: if ch in ['group', 'journal']
@@ -107,6 +120,9 @@ service cloud.firestore {
         && request.resource.data.text.size() > 0 && request.resource.data.text.size() <= 2000
         && ((isCoach() && request.resource.data.from == 'coach')
           || (isStudent() && request.resource.data.from == 'student' && request.resource.data.uid == request.auth.uid));
+      allow update: if ch in ['group', 'journal'] && validEdit()
+        && ((isCoach() && resource.data.from == 'coach')
+          || (isStudent() && resource.data.from == 'student' && resource.data.uid == request.auth.uid));
       allow delete: if isCoach() || (isStudent() && resource.data.uid == request.auth.uid);
     }
 

@@ -178,6 +178,10 @@ legend { font-weight: 700; font-size: .9rem; margin-bottom: 6px; }
 .msg--mine .msg-text { border-radius: 16px 16px 4px 16px; background: var(--ink); color: var(--paper); border-color: var(--ink); }
 .msg--coach .msg-text { font-weight: 700; }
 .msg--coach:not(.msg--mine) .msg-text { border-left: 3px solid var(--seal); }
+.msg.is-editing { width: min(82%, 560px); }
+.msg-edit { display: flex; flex-direction: column; gap: 6px; }
+.msg-edit textarea { width: 100%; font: inherit; padding: 10px 12px; border-radius: 12px; border: 1px solid var(--line); background: var(--card); color: var(--ink); resize: vertical; }
+.msg-edit-actions { display: flex; gap: 8px; justify-content: flex-end; }
 .msg.is-new .msg-meta::before { content: "New · "; color: var(--seal); font-weight: 700; }
 .chat-compose {
   position: sticky; bottom: calc(var(--tabbar-h) + env(safe-area-inset-bottom)); display: grid; gap: 6px;

@@ -208,11 +208,59 @@ export function renderYear(el, year, opts = {}) {
 
 // One chat message in the EmptyHands menu. Sensei's messages are bold; `mine` puts it on the
 // viewer's side; `del` adds a delete button (for moderation or the author's own messages).
-export function messageHTML(m, mine, del) {
+// The sent message being edited, and the draft so far (kept while the feed redraws).
+export const editing = { id: null, draft: '' };
+
+export function messageHTML(m, mine, del, edit) {
   const who = m.from === 'coach' ? esc(m.author || 'Sensei') + ' · Sensei' : esc(m.author || 'Student');
-  return `<div class="msg msg--${m.from === 'coach' ? 'coach' : 'student'}${mine ? ' msg--mine' : ''}">
-    <div class="msg-meta">${who} · ${timeAgo(m.createdAt)}${del ? ` · <button type="button" class="linkish danger" data-delmsg="${esc(m.id)}">Delete</button>` : ''}</div>
-    <div class="msg-text">${esc(m.text).replace(/\n/g, '<br>')}</div></div>`;
+  const open = edit && editing.id === m.id;
+  const tools = [
+    edit && !open ? `<button type="button" class="linkish" data-editmsg="${esc(m.id)}">Edit</button>` : '',
+    del ? `<button type="button" class="linkish danger" data-delmsg="${esc(m.id)}">Delete</button>` : '',
+  ].filter(Boolean).join(' · ');
+  const body = open
+    ? `<form class="msg-edit" data-editform="${esc(m.id)}">
+        <textarea name="text" rows="3" maxlength="2000" required aria-label="Edit your message">${esc(editing.draft)}</textarea>
+        <div class="msg-edit-actions"><button type="button" class="btn btn--ghost btn--sm" data-editcancel>Cancel</button><button class="btn btn--seal btn--sm">Save</button></div>
+      </form>`
+    : `<div class="msg-text">${esc(m.text).replace(/\n/g, '<br>')}</div>`;
+  return `<div class="msg msg--${m.from === 'coach' ? 'coach' : 'student'}${mine ? ' msg--mine' : ''}${open ? ' is-editing' : ''}">
+    <div class="msg-meta">${who} · ${timeAgo(m.createdAt)}${'editedAt' in m ? ' · edited' : ''}${tools ? ' · ' + tools : ''}</div>
+    ${body}</div>`;
+}
+
+// Edit / Cancel / Save on a feed of messages. find(id) gives the message, save(id, text) stores
+// the new text, redraw() redraws the feed and fail(err) reports an error.
+export function wireEdits(feed, { find, save, redraw, fail }) {
+  feed.addEventListener('click', e => {
+    const b = e.target.closest('[data-editmsg]');
+    if (b) {
+      const m = find(b.dataset.editmsg);
+      if (!m) return;
+      editing.id = m.id;
+      editing.draft = m.text;
+      redraw();
+      const t = $('.msg-edit textarea', feed);
+      if (t) { t.focus(); t.setSelectionRange(t.value.length, t.value.length); t.scrollIntoView({ block: 'nearest' }); }
+    } else if (e.target.closest('[data-editcancel]')) {
+      editing.id = null;
+      redraw();
+    }
+  });
+  feed.addEventListener('input', e => { if (e.target.closest('.msg-edit')) editing.draft = e.target.value; });
+  feed.addEventListener('submit', async e => {
+    const form = e.target.closest('[data-editform]');
+    if (!form) return;
+    e.preventDefault();
+    const id = form.dataset.editform;
+    const text = form.text.value.trim();
+    if (!text) return;
+    const m = find(id);
+    if (m && text === m.text) { editing.id = null; redraw(); return; }
+    await busy(form.querySelector('button:not([type=button])'), async () => {
+      try { await save(id, text); editing.id = null; redraw(); } catch (err) { fail(err); }
+    });
+  });
 }
 
 export function legendHTML(counts) {
