@@ -3,7 +3,7 @@ import { OWNER_EMAILS, STUDENT_URL, COACH_LOGIN_APPROVAL } from './config.js';
 import {
   $, $$, esc, GRADES, DISCIPLINES, DOJOS, AUDIENCES, renderYear, legendHTML, loadCalendar, calendarYears,
   noticeIsFor, homeworkIsFor, DEFAULT_FEES, FEE_GROUPS, FEE_LEVELS, paypalLink, longDate,
-  monthKey, monthName, isMonthly, monthlyFeeFor, money, PAY_METHODS, shortDate, timeAgo, keyOf, download, toast, busy, messageHTML,
+  monthKey, monthName, isMonthly, monthlyFeeFor, money, PAY_METHODS, shortDate, timeAgo, keyOf, download, toast, busy, messageHTML, wireEdits, editing,
 } from './common.js';
 
 let api;
@@ -73,7 +73,7 @@ $('#forgot').addEventListener('click', async () => {
 $('#signout').addEventListener('click', () => { if (!ed.dirty || confirm('You have unpublished calendar changes. Sign out anyway?')) api.signOut(); });
 $('#denied-signout').addEventListener('click', () => api.signOut());
 $('#resend').addEventListener('click', async () => {
-  try { await api.sendVerification(); toast('Verification email sent to ' + state.user.email); } catch (err) { toast(errorText(err), 'bad'); }
+  try { await api.sendVerification(); toast('Verification email sent to ' + state.user.email + ' — check Junk / Spam too'); } catch (err) { toast(errorText(err), 'bad'); }
 });
 $('#recheck').addEventListener('click', async () => onAuth(await api.reloadUser()));
 
@@ -119,10 +119,15 @@ async function onAuth(user) {
   state.requests = null;
   state.user = user;
   if (!user) { show('auth'); return; }
+  // A device that signed in before the email was verified remembers the old status; refresh it.
+  if (!user.emailVerified && !DEMO) {
+    user = await api.reloadUser().catch(() => user);
+    state.user = user;
+  }
   if (!(await isCoach(user))) {
     const listed = OWNER_EMAILS.map(x => x.toLowerCase()).includes(user.email) || (await api.getCoaches().catch(() => [])).includes(user.email);
     $('#denied-why').innerHTML = !user.emailVerified && listed
-      ? `We’ve sent a verification link to <b>${esc(user.email)}</b>. Open it, then come back and press “check again”.`
+      ? `We’ve sent a verification link to <b>${esc(user.email)}</b>. Open it, then come back and press “check again”. It comes from <b>noreply@emptyhands-student-portal.firebaseapp.com</b>, so if it isn’t there within a few minutes, look in <b>Junk / Spam</b>.`
       : `<b>${esc(user.email)}</b> isn’t on the Sensei list. Ask a head Sensei to add it under <i>Sensei</i>, then verify your email.`;
     $('#resend').hidden = user.emailVerified;
     show('denied');
@@ -233,14 +238,22 @@ function drawChannel() {
   $('#channel-intro').textContent = CM_INTRO[ch];
   $('#channel-text').placeholder = ch === 'group' ? 'Write to everyone…' : 'Reply in the training journal…';
   const feed = $('#channel-feed');
-  feed.innerHTML = state[ch].length ? state[ch].map(m => messageHTML(m, m.from === 'coach', true)).join('')
+  feed.innerHTML = state[ch].length ? state[ch].map(m => messageHTML(m, m.from === 'coach', true, mineCoach(m))).join('')
     : '<p class="muted fine center">Nothing here yet.</p>';
-  feed.scrollTop = feed.scrollHeight;
+  if (!editing.id) feed.scrollTop = feed.scrollHeight;
 }
 $('#channel-feed').addEventListener('click', async e => {
   const b = e.target.closest('[data-delmsg]');
   if (!b || !confirm('Delete this message for everyone?')) return;
   try { await api.deleteChannelMessage(state.cm, b.dataset.delmsg); } catch (err) { toast(errorText(err), 'bad'); }
+});
+// Sensei can edit what they wrote themselves.
+const mineCoach = m => m.from === 'coach' && (!m.uid || m.uid === state.user.uid);
+wireEdits($('#channel-feed'), {
+  find: id => (state[state.cm] || []).find(m => m.id === id),
+  save: (id, text) => api.editChannelMessage(state.cm, id, text),
+  redraw: () => drawChannel(),
+  fail: err => toast(errorText(err), 'bad'),
 });
 const channelText = $('#channel-text');
 channelText.addEventListener('input', () => { channelText.style.height = 'auto'; channelText.style.height = Math.min(channelText.scrollHeight, 160) + 'px'; });
@@ -521,18 +534,28 @@ function closeChat() {
   $('#menu-layout').classList.remove('is-open');
   drawChatList();
 }
+wireEdits($('#chat-feed'), {
+  find: id => state.thread.find(m => m.id === id),
+  save: (id, text) => api.editMessage(state.open, id, text),
+  redraw: () => drawThread(),
+  fail: err => toast(errorText(err), 'bad'),
+});
 function drawThread() {
   const feed = $('#chat-feed');
   feed.innerHTML = state.thread.length
-    ? state.thread.map(m => messageHTML(m, m.from === 'coach')).join('')
+    ? state.thread.map(m => messageHTML(m, m.from === 'coach', false, mineCoach(m))).join('')
     : '<p class="muted fine center">No messages yet. Say hello — the student and their family will see it in their EmptyHands menu.</p>';
-  feed.scrollTop = feed.scrollHeight;
+  if (!editing.id) feed.scrollTop = feed.scrollHeight;
 }
 function markOpenRead() {
   const c = state.chats.find(x => x.id === state.open);
   if (state.view === 'menu' && !document.hidden && unreadChat(c)) api.markChatRead(state.open, 'coach').catch(console.warn);
 }
-document.addEventListener('visibilitychange', () => { if (state.open) markOpenRead(); });
+document.addEventListener('visibilitychange', () => {
+  if (state.open) markOpenRead();
+  // Back from tapping the verification link: let them straight in.
+  if (!document.hidden && state.user && !state.user.emailVerified && !$('#view-denied').hidden) onAuth(state.user);
+});
 
 const replyText = $('#reply-text');
 replyText.addEventListener('input', () => { replyText.style.height = 'auto'; replyText.style.height = Math.min(replyText.scrollHeight, 160) + 'px'; });
