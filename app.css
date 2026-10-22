@@ -167,7 +167,7 @@ legend { font-weight: 700; font-size: .9rem; margin-bottom: 6px; }
 /* Coach notices are bold everywhere students see them. */
 .notice--coach h3, .notice--coach p { font-weight: 700; color: var(--ink); }
 
-/* EmptyHands menu: chat */
+/* EmptyHands chats */
 .chat-intro { margin-bottom: 10px; }
 .chat-feed { display: flex; flex-direction: column; gap: 10px; padding-bottom: 8px; }
 .chat-feed .notice { margin: 4px 0; }
@@ -188,6 +188,7 @@ legend { font-weight: 700; font-size: .9rem; margin-bottom: 6px; }
   background: var(--paper); padding: 10px 0; border-top: 1px solid var(--line);
 }
 .coach .chat-compose { bottom: 0; }
+.chat-pane .chat-compose { background: transparent; }
 .chat-row { display: flex; gap: 8px; align-items: flex-end; }
 .chat-row textarea { min-height: 46px; max-height: 160px; resize: none; }
 .chat-from { display: flex; align-items: center; gap: 8px; font-size: .82rem; }
@@ -348,9 +349,9 @@ ul.plain li:first-child { border-top: 0; }
 .request p { margin: 4px 0; }
 .request-actions { display: flex; gap: 8px; }
 
-/* Coach panel: EmptyHands menu */
+/* Coach panel: EmptyHands chats. Every chat panel is the same fixed height; messages scroll inside. */
 .menu-layout { display: grid; gap: 16px; grid-template-columns: minmax(240px, 320px) 1fr; align-items: start; }
-.chat-list { padding: 10px; position: sticky; top: 76px; max-height: calc(100vh - 100px); overflow: auto; }
+.chat-list { padding: 10px; height: clamp(420px, calc(100dvh - 210px), 760px); overflow: auto; overscroll-behavior: contain; }
 .chat-list input { margin-bottom: 8px; }
 .chat-list ul { list-style: none; margin: 0; padding: 0; }
 .chat-item { display: grid; grid-template-columns: 1fr auto; gap: 2px 8px; width: 100%; text-align: left; border: 0; background: none; padding: 10px; border-radius: 8px; cursor: pointer; }
@@ -360,18 +361,21 @@ ul.plain li:first-child { border-top: 0; }
 .chat-item small { grid-column: 1 / -1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .chat-item.is-unread b::after { content: ""; display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--seal); margin-left: 8px; vertical-align: middle; }
 .chat-item.is-unread small { color: var(--ink); font-weight: 700; }
-.chat-pane { min-height: 60vh; display: flex; flex-direction: column; }
+.chat-pane { --pane-h: clamp(420px, calc(100dvh - 210px), 760px); height: var(--pane-h); display: flex; flex-direction: column; }
+#chat-open:not([hidden]) { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+.chat-pane .empty { margin: auto; }
 .chat-head { display: flex; gap: 12px; align-items: flex-start; border-bottom: 1px solid var(--line); padding-bottom: 10px; margin-bottom: 10px; }
 .chat-head h2 { margin: 0; }
 .chat-head p { margin: 0; }
 .chat-back { display: none; }
-.chat-feed--scroll { height: min(60vh, 560px); overflow-y: auto; padding: 4px 4px 8px; }
+.chat-feed--scroll { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 4px 4px 8px; }
+.chat-pane > p, .chat-head, .chat-pane .chat-compose { flex: none; }
 .center { text-align: center; }
 @media (max-width: 760px) {
   .menu-layout { grid-template-columns: 1fr; }
   .menu-layout.is-open .chat-list { display: none; }
   .menu-layout:not(.is-open) .chat-pane { display: none; }
-  .chat-list { position: static; max-height: none; }
+  .chat-list { height: auto; }
   .chat-back { display: inline; }
   .chat-head { flex-direction: column; gap: 4px; }
 }
@@ -385,11 +389,12 @@ button.app-user[aria-current] { background: var(--ink); color: var(--paper); }
 .tabbar button { font-size: .7rem; }
 @media (min-width: 900px) { .tabbar { width: 560px; } }
 
-/* EmptyHands menu: channels + recommended channel */
+/* EmptyHands chats: channels + recommended channel */
 .menu-grid { display: grid; gap: 18px; align-items: start; }
 @media (min-width: 900px) { .menu-grid { grid-template-columns: 1fr 260px; } .recommend { position: sticky; top: 84px; } }
 .channels { display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; margin: 0 -16px 10px; padding: 0 16px 2px; }
 .channels button { flex: none; border: 1px solid var(--paper-3); background: #fff; border-radius: 99px; padding: 8px 14px; font-weight: 700; font-size: .88rem; cursor: pointer; position: relative; color: var(--ink-2); }
+.channels button { transition: background-color .2s, color .2s, border-color .2s; }
 .channels button[aria-selected=true] { background: var(--ink); border-color: var(--ink); color: var(--paper); }
 .channels .dot { position: absolute; top: 4px; right: 6px; width: 8px; height: 8px; border-radius: 50%; background: var(--seal); }
 .recommend { border-top: 4px solid var(--seal); }
@@ -504,3 +509,27 @@ a.fee-option:active { transform: scale(.98); }
 .ios-share::before { content: ""; position: absolute; left: 50%; top: -9px; width: 2px; height: 16px; background: var(--ink); transform: translateX(-50%); }
 .ios-share::after { content: ""; position: absolute; left: 50%; top: -9px; width: 8px; height: 8px; border-left: 2px solid var(--ink); border-top: 2px solid var(--ink); transform: translateX(-50%) rotate(45deg); }
 .install-btn { margin-top: 4px; }
+
+/* Screens and chat channels fade in smoothly when you switch to them. */
+.view:not([hidden]) { animation: view-in .22s ease both; }
+.fade-in { animation: fade-in .2s ease both; }
+@keyframes view-in { from { opacity: 0; transform: translateY(6px); } }
+@keyframes fade-in { from { opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .view:not([hidden]), .fade-in { animation: none; } }
+
+/* Student EmptyHands chats: one fixed-size panel that fills the screen. Switching channels never
+   changes its size; longer chats scroll inside it, with the message box always at the bottom. */
+body.in-chat { height: 100vh; height: 100dvh; min-height: 0; display: flex; flex-direction: column; overflow: hidden; padding-bottom: calc(var(--tabbar-h) + env(safe-area-inset-bottom)); }
+body.in-chat .app-main { flex: 1; min-height: 0; width: 100%; display: flex; flex-direction: column; padding-bottom: 0; }
+body.in-chat #view-menu { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+body.in-chat #view-menu .view-head { flex: none; }
+body.in-chat #menu-chat { flex: 1; min-height: 0; grid-template-rows: auto minmax(0, 1fr); }
+body.in-chat .menu-main { display: flex; flex-direction: column; min-height: 0; align-self: stretch; }
+body.in-chat .channels { flex: none; }
+body.in-chat .chat-scroll { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; padding-right: 2px; }
+body.in-chat .chat-compose { flex: none; position: static; }
+@media (min-width: 900px) { body.in-chat #menu-chat { grid-template-rows: minmax(0, 1fr); } }
+@media (max-width: 599px) {
+  body.in-chat #view-menu .view-head { margin-bottom: 8px; }
+  body.in-chat #view-menu .eyebrow { display: none; }
+}

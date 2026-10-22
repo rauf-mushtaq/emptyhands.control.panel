@@ -23,7 +23,7 @@
   <span class="app-title">Sensei panel</span>
   <nav class="coach-tabs" id="coach-tabs" aria-label="Sensei panel" hidden>
     <button data-go="requests">Requests <span class="count" id="request-count"></span></button>
-    <button data-go="menu">EmptyHands menu <span class="count" id="menu-count"></span></button>
+    <button data-go="menu">EmptyHands chats <span class="count" id="menu-count"></span></button>
     <button data-go="notices">Notices</button>
     <button data-go="homework">Homework</button>
     <button data-go="payments">Payments</button>
@@ -88,13 +88,13 @@
       <div><p class="eyebrow">New sign-ups</p><h1>Join requests</h1></div>
       <div class="view-actions"><button class="btn btn--ghost btn--sm" id="coach-alerts" hidden>Turn on pop-up alerts</button></div>
     </div>
-    <p class="muted fine">Accepting a request adds the student to the EmptyHands menu: they get your notices and can message Sensei. Declined requests can still be accepted later from <i>Students → Declined</i>.</p>
+    <p class="muted fine">Accepting a request adds the student to EmptyHands chats: they get your notices and can message Sensei. Declined requests can still be accepted later from <i>Students → Declined</i>.</p>
     <div class="requests" id="request-list"></div>
   </section>
 
-  <!-- EmptyHands menu: one private chat per student -->
+  <!-- EmptyHands chats: one private chat per student -->
   <section class="view" id="view-menu" hidden>
-    <div class="channels menu-switch" role="tablist" aria-label="EmptyHands menu">
+    <div class="channels menu-switch" role="tablist" aria-label="EmptyHands chats">
       <button type="button" role="tab" data-cm="private" aria-selected="true">Private messages<span class="dot" hidden></span></button>
       <button type="button" role="tab" data-cm="group" aria-selected="false">Group chat</button>
       <button type="button" role="tab" data-cm="journal" aria-selected="false">Training journal</button>
