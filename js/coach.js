@@ -469,7 +469,7 @@ $('#form-homework').addEventListener('submit', async e => {
   const form = e.target;
   showError(form);
   const [kind, val] = form.target.value.split(':');
-  const h = { title: form.title.value.trim(), details: form.details.value.trim(), due: form.due.value || '', from: form.from.value.trim(), ...(kind === 's' ? { student: val, audience: 'all' } : { audience: val }) };
+  const h = { title: form.title.value.trim(), details: form.details.value.trim(), due: form.due.value || '', from: form.from.value.trim(), ...(kind === 's' ? { student: val, audience: 'all' } : { student: '', audience: val }) };
   if (!h.title) return showError(form, 'Please say what the homework is.');
   await busy(form.querySelector('[type=submit]'), async () => {
     try {

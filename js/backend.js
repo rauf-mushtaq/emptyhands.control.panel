@@ -99,15 +99,31 @@ async function firebaseBackend() {
     deleteChannelMessage: (ch, id) => F.deleteDoc(ref('channels', ch, 'messages', id)),
 
     // Sensei's homework. Each student ticks items off in users/{uid}.homeworkDone.
-    watchHomework: cb => F.onSnapshot(F.query(F.collection(db, 'homework'), F.orderBy('createdAt', 'desc'), F.limit(200)),
-      snap => cb(rows(snap).map(h => ({ ...h, createdAt: millis(h.createdAt) }))), err => console.error(err)),
+    // Sensei sees all homework. A student (uid + their groups) only asks for what the security
+    // rules let them read: homework set for them, and group homework for their groups.
+    watchHomework: (cb, uid, audiences) => {
+      const out = h => ({ ...h, createdAt: millis(h.createdAt) });
+      if (!uid) return F.onSnapshot(F.query(F.collection(db, 'homework'), F.orderBy('createdAt', 'desc'), F.limit(200)),
+        snap => cb(rows(snap).map(out)), err => console.error(err));
+      const parts = { mine: [], group: [] };
+      const emit = () => cb([...parts.mine, ...parts.group].map(out).sort((a, b) => b.createdAt - a.createdAt));
+      const col = F.collection(db, 'homework');
+      const stops = [
+        F.onSnapshot(F.query(col, F.where('student', '==', uid)), snap => { parts.mine = rows(snap); emit(); }, err => console.error(err)),
+        F.onSnapshot(F.query(col, F.where('student', '==', ''), F.where('audience', 'in', audiences)), snap => { parts.group = rows(snap); emit(); }, err => console.error(err)),
+      ];
+      return () => stops.forEach(stop => stop());
+    },
     addHomework: h => F.addDoc(F.collection(db, 'homework'), { ...h, createdAt: F.serverTimestamp() }),
     deleteHomework: id => F.deleteDoc(ref('homework', id)),
     setHomeworkDone: (uid, id, done) => F.updateDoc(ref('users', uid), new F.FieldPath('homeworkDone', id), done ? Date.now() : F.deleteField()),
 
-    watchNotifications: cb => F.onSnapshot(
-      F.query(F.collection(db, 'notifications'), F.orderBy('createdAt', 'desc'), F.limit(200)),
-      snap => cb(rows(snap).map(n => ({ ...n, createdAt: millis(n.createdAt) }))),
+    // Sensei sees every notice; a student passes their groups and gets only those notices.
+    watchNotifications: (cb, audiences) => F.onSnapshot(
+      audiences
+        ? F.query(F.collection(db, 'notifications'), F.where('audience', 'in', audiences), F.limit(200))
+        : F.query(F.collection(db, 'notifications'), F.orderBy('createdAt', 'desc'), F.limit(200)),
+      snap => cb(rows(snap).map(n => ({ ...n, createdAt: millis(n.createdAt) })).sort((a, b) => b.createdAt - a.createdAt)),
       err => console.error(err)),
     addNotification: n => F.addDoc(F.collection(db, 'notifications'), { ...n, createdAt: F.serverTimestamp() }),
     deleteNotification: id => F.deleteDoc(ref('notifications', id)),

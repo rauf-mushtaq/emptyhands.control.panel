@@ -130,6 +130,14 @@ export function monthlyFeeFor(fees, p) {
     || fees.find(f => f.per === 'month');
 }
 
+// The notice/homework groups a student belongs to. Must match myAudiences() in firestore.rules.
+export function myAudiences(p) {
+  const d = p.dojo || '';
+  return ['all', ...(p.disciplines || []),
+    ...(d === 'ilford' || d === 'both' ? ['ilford'] : []), ...(d === 'epping' || d === 'both' ? ['epping'] : []),
+    ...(p.grade === 'dan' ? ['blackbelt'] : [])];
+}
+
 // Who a homework item is for: one student, or a group like a notice.
 export function homeworkIsFor(h, uid, p) {
   return h.student ? h.student === uid : noticeIsFor(h, p);
