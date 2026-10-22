@@ -195,11 +195,11 @@ $('#request-list').addEventListener('click', async e => {
   const accept = 'accept' in b.dataset;
   const uid = b.dataset.accept || b.dataset.decline;
   const r = (state.requests || []).find(x => x.id === uid);
-  if (!accept && !confirm(`Decline ${r ? r.name : 'this request'}? They won’t be able to use the EmptyHands menu.`)) return;
+  if (!accept && !confirm(`Decline ${r ? r.name : 'this request'}? They won’t be able to use EmptyHands chats.`)) return;
   await busy(b, async () => {
     try {
       await api.saveProfile(uid, accept ? { role: 'student', acceptedAt: Date.now() } : { role: 'declined' });
-      toast(accept ? `${r.name} accepted and added to the EmptyHands menu` : `${r.name}’s request declined`);
+      toast(accept ? `${r.name} accepted and added to EmptyHands chats` : `${r.name}’s request declined`);
       loadStudents();
     } catch (err) { toast(errorText(err), 'bad'); }
   });
@@ -210,7 +210,7 @@ $('#coach-alerts').addEventListener('click', async () => {
   drawRequests();
 });
 
-// ---- EmptyHands menu: private chat with each student's family ----
+// ---- EmptyHands chats: private chat with each student's family ----
 const unreadChat = c => c && c.lastFrom === 'student' && (c.lastAt || 0) > (c.coachReadAt || 0);
 function drawMenuCount() {
   const n = state.chats.filter(unreadChat).length;
@@ -225,11 +225,15 @@ const CM_INTRO = {
 };
 $('.menu-switch').addEventListener('click', e => {
   const b = e.target.closest('[data-cm]');
-  if (!b) return;
+  if (!b || b.dataset.cm === state.cm) return;
   state.cm = b.dataset.cm;
+  editing.id = null;
   $$('.menu-switch [data-cm]').forEach(x => x.setAttribute('aria-selected', x === b));
   drawChannel();
+  fadeIn(state.cm === 'private' ? $('#menu-layout') : $('#channel-pane'));
 });
+// Fade a panel in when switching to it.
+function fadeIn(el) { el.classList.remove('fade-in'); void el.offsetWidth; el.classList.add('fade-in'); }
 function drawChannel() {
   const ch = state.cm;
   $('#menu-layout').hidden = ch !== 'private';
@@ -521,6 +525,7 @@ function openChat(uid) {
   $('#chat-sub').innerHTML = s ? [s.guardian && 'Parent: ' + esc(s.guardian), (s.disciplines || []).map(d => DISCIPLINES[d]).join(', '), DOJOS[s.dojo], GRADES[s.grade]].filter(Boolean).join(' · ') : '';
   $('#chat-empty').hidden = true;
   $('#chat-open').hidden = false;
+  fadeIn($('#chat-open'));
   $('#menu-layout').classList.add('is-open');
   state.stopThread = api.watchThread(uid, list => { state.thread = list; drawThread(); markOpenRead(); });
   drawChatList();
@@ -544,7 +549,7 @@ function drawThread() {
   const feed = $('#chat-feed');
   feed.innerHTML = state.thread.length
     ? state.thread.map(m => messageHTML(m, m.from === 'coach', false, mineCoach(m))).join('')
-    : '<p class="muted fine center">No messages yet. Say hello — the student and their family will see it in their EmptyHands menu.</p>';
+    : '<p class="muted fine center">No messages yet. Say hello — the student and their family will see it in their EmptyHands chats.</p>';
   if (!editing.id) feed.scrollTop = feed.scrollHeight;
 }
 function markOpenRead() {
