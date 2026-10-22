@@ -73,7 +73,7 @@ $('#forgot').addEventListener('click', async () => {
 $('#signout').addEventListener('click', () => { if (!ed.dirty || confirm('You have unpublished calendar changes. Sign out anyway?')) api.signOut(); });
 $('#denied-signout').addEventListener('click', () => api.signOut());
 $('#resend').addEventListener('click', async () => {
-  try { await api.sendVerification(); toast('Verification email sent to ' + state.user.email); } catch (err) { toast(errorText(err), 'bad'); }
+  try { await api.sendVerification(); toast('Verification email sent to ' + state.user.email + ' — check Junk / Spam too'); } catch (err) { toast(errorText(err), 'bad'); }
 });
 $('#recheck').addEventListener('click', async () => onAuth(await api.reloadUser()));
 
@@ -122,7 +122,7 @@ async function onAuth(user) {
   if (!(await isCoach(user))) {
     const listed = OWNER_EMAILS.map(x => x.toLowerCase()).includes(user.email) || (await api.getCoaches().catch(() => [])).includes(user.email);
     $('#denied-why').innerHTML = !user.emailVerified && listed
-      ? `We’ve sent a verification link to <b>${esc(user.email)}</b>. Open it, then come back and press “check again”.`
+      ? `We’ve sent a verification link to <b>${esc(user.email)}</b>. Open it, then come back and press “check again”. It comes from <b>noreply@emptyhands-student-portal.firebaseapp.com</b>, so if it isn’t there within a few minutes, look in <b>Junk / Spam</b>.`
       : `<b>${esc(user.email)}</b> isn’t on the Sensei list. Ask a head Sensei to add it under <i>Sensei</i>, then verify your email.`;
     $('#resend').hidden = user.emailVerified;
     show('denied');
