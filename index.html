@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>EmptyHands · Coach panel</title>
+<title>EmptyHands · Sensei panel</title>
 <meta name="robots" content="noindex">
 <meta name="theme-color" content="#14120f">
 <link rel="icon" href="assets/img/favicon.png" type="image/png">
@@ -13,12 +13,12 @@
 <link rel="stylesheet" href="app.css">
 </head>
 <body class="coach">
-<div class="demo-banner" id="demo-banner" hidden>Demo mode — data is saved in this browser only. Any account made here is a coach. See the README to go live.</div>
+<div class="demo-banner" id="demo-banner" hidden>Demo mode — data is saved in this browser only. Any account made here is a Sensei. See the README to go live.</div>
 
 <header class="app-top app-top--dark">
   <a class="app-brand" href="https://rauf-mushtaq.github.io/emptyhands/" aria-label="EmptyHands website"><img src="assets/img/logo-light.png" alt="EmptyHands KaraTe School" width="597" height="399"></a>
-  <span class="app-title">Coach panel</span>
-  <nav class="coach-tabs" id="coach-tabs" aria-label="Coach panel" hidden>
+  <span class="app-title">Sensei panel</span>
+  <nav class="coach-tabs" id="coach-tabs" aria-label="Sensei panel" hidden>
     <button data-go="requests">Requests <span class="count" id="request-count"></span></button>
     <button data-go="menu">EmptyHands menu <span class="count" id="menu-count"></span></button>
     <button data-go="notices">Notices</button>
@@ -26,7 +26,7 @@
     <button data-go="payments">Payments</button>
     <button data-go="students">Students <span class="count" id="student-count"></span></button>
     <button data-go="calendar">Calendar</button>
-    <button data-go="coaches">Coaches</button>
+    <button data-go="coaches">Sensei</button>
   </nav>
   <button class="btn btn--ghost btn--sm btn--light" id="signout" hidden>Sign out</button>
 </header>
@@ -38,11 +38,11 @@
   <section class="view auth" id="view-auth" hidden>
     <div class="auth-card">
       <div class="auth-kanji" aria-hidden="true">指導</div>
-      <h1>Coach panel</h1>
+      <h1>Sensei panel</h1>
       <p class="muted">Send notices to your students and keep the dojo calendar up to date.</p>
       <div class="seg" role="tablist">
         <button type="button" role="tab" aria-selected="true" data-auth="signin">Sign in</button>
-        <button type="button" role="tab" aria-selected="false" data-auth="signup">New coach account</button>
+        <button type="button" role="tab" aria-selected="false" data-auth="signup">New Sensei account</button>
       </div>
       <form id="form-auth" class="stack" novalidate>
         <label class="only-signup" hidden>Your name <small>(shown on notices)</small><input name="name" autocomplete="name"></label>
@@ -52,13 +52,13 @@
         <button class="btn btn--seal btn--block" type="submit">Sign in</button>
         <button class="linkish" type="button" id="forgot">Forgotten your password?</button>
       </form>
-      <p class="fine">Only emails on the coach list can open this panel. <a id="student-app-link" href="https://rauf-mushtaq.github.io/emptyhands.student/">Student app →</a></p>
+      <p class="fine">Only emails on the Sensei list can open this panel. <a id="student-app-link" href="https://rauf-mushtaq.github.io/emptyhands.student/">Student app →</a></p>
     </div>
   </section>
 
   <section class="view auth" id="view-denied" hidden>
     <div class="auth-card">
-      <h1>Not a coach account yet</h1>
+      <h1>Not a Sensei account yet</h1>
       <p id="denied-why"></p>
       <div class="stack">
         <button class="btn btn--seal btn--block" id="recheck">I’ve verified — check again</button>
@@ -85,7 +85,7 @@
       <div><p class="eyebrow">New sign-ups</p><h1>Join requests</h1></div>
       <div class="view-actions"><button class="btn btn--ghost btn--sm" id="coach-alerts" hidden>Turn on pop-up alerts</button></div>
     </div>
-    <p class="muted fine">Accepting a request adds the student to the EmptyHands menu: they get your notices and can message the coaches. Declined requests can still be accepted later from <i>Students → Declined</i>.</p>
+    <p class="muted fine">Accepting a request adds the student to the EmptyHands menu: they get your notices and can message Sensei. Declined requests can still be accepted later from <i>Students → Declined</i>.</p>
     <div class="requests" id="request-list"></div>
   </section>
 
@@ -183,7 +183,7 @@
         <tbody id="fee-rows"></tbody>
       </table>
     </div>
-    <p class="muted fine">Students see the fees for their own classes first. The fees for their belt level are marked “Your level”. <b>Copy link</b> gives a PayPal link you can paste into a message or notice. Remember to press <b>Save</b>.</p>
+    <p class="muted fine">For each class they attend, students choose <b>per lesson</b> (the fee with Per = “lesson” or “class”) or <b>per month</b> (Per = “month”). For Karate the monthly fee is the one matching their belt: Beginner (no belt – orange), Intermediate (yellow – green), Advanced (purple). <b>Brown belt and above</b> see “On application” for monthly. Other fees, such as membership and gradings, don’t show to students. <b>Copy link</b> gives a PayPal link you can paste into a message or notice. Remember to press <b>Save</b>.</p>
   </section>
 
   <!-- Notices -->
@@ -271,18 +271,18 @@
   <!-- Coaches -->
   <section class="view" id="view-coaches" hidden>
     <p class="eyebrow">Access</p>
-    <h1>Coaches</h1>
+    <h1>Sensei</h1>
     <div class="coach-cols">
       <div class="card stack">
-        <h2>Head coaches</h2>
+        <h2>Head Sensei</h2>
         <p class="muted fine">Set in <code>js/config.js</code> (in both repositories) and <code>firebase/firestore.rules</code>. They can always sign in here.</p>
         <ul class="plain" id="owners"></ul>
       </div>
       <form class="card stack" id="form-coaches">
-        <h2>Coaches</h2>
-        <p class="muted fine">Anyone on this list can send notices, see students and edit the calendar once they create a coach account with that email and verify it.</p>
+        <h2>Sensei</h2>
+        <p class="muted fine">Anyone on this list can send notices, see students and edit the calendar once they create a Sensei account with that email and verify it.</p>
         <ul class="plain" id="coach-list"></ul>
-        <div class="inline-form"><input type="email" name="email" placeholder="coach@example.com" aria-label="Coach email" required><button class="btn btn--sm" type="submit">Add coach</button></div>
+        <div class="inline-form"><input type="email" name="email" placeholder="sensei@example.com" aria-label="Sensei email" required><button class="btn btn--sm" type="submit">Add Sensei</button></div>
       </form>
     </div>
   </section>

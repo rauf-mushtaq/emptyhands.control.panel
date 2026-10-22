@@ -45,7 +45,7 @@ $$('[data-auth]').forEach(btn => btn.addEventListener('click', () => {
   $('#forgot').hidden = mode === 'signup';
   const form = $('#form-auth');
   form.password.autocomplete = mode === 'signup' ? 'new-password' : 'current-password';
-  form.querySelector('[type=submit]').textContent = mode === 'signup' ? 'Create coach account' : 'Sign in';
+  form.querySelector('[type=submit]').textContent = mode === 'signup' ? 'Create Sensei account' : 'Sign in';
   showError(form);
 }));
 
@@ -123,7 +123,7 @@ async function onAuth(user) {
     const listed = OWNER_EMAILS.map(x => x.toLowerCase()).includes(user.email) || (await api.getCoaches().catch(() => [])).includes(user.email);
     $('#denied-why').innerHTML = !user.emailVerified && listed
       ? `We’ve sent a verification link to <b>${esc(user.email)}</b>. Open it, then come back and press “check again”.`
-      : `<b>${esc(user.email)}</b> isn’t on the coach list. Ask a head coach to add it under <i>Coaches</i>, then verify your email.`;
+      : `<b>${esc(user.email)}</b> isn’t on the Sensei list. Ask a head Sensei to add it under <i>Sensei</i>, then verify your email.`;
     $('#resend').hidden = user.emailVerified;
     show('denied');
     return;
@@ -163,7 +163,7 @@ function onRequests(list) {
     });
   }
   $('#request-count').textContent = list.length || '';
-  document.title = (list.length ? `(${list.length}) ` : '') + 'EmptyHands · Coach panel';
+  document.title = (list.length ? `(${list.length}) ` : '') + 'EmptyHands · Sensei panel';
   drawRequests();
 }
 function drawRequests() {
@@ -541,7 +541,7 @@ $('#form-reply').addEventListener('submit', async e => {
   e.preventDefault();
   const text = replyText.value.trim();
   if (!text || !state.open) return;
-  const author = $('#reply-from').value.trim() || 'Coach';
+  const author = $('#reply-from').value.trim() || 'Sensei';
   const s = state.students.find(x => x.id === state.open);
   await busy(e.target.querySelector('[type=submit]'), async () => {
     try {
@@ -800,7 +800,7 @@ async function drawCoaches() {
   const list = await api.getCoaches().catch(() => []);
   $('#coach-list').innerHTML = list.length
     ? list.map(e => `<li>${esc(e)} <button type="button" class="linkish danger" data-uncoach="${esc(e)}">Remove</button></li>`).join('')
-    : '<li class="muted">No extra coaches yet.</li>';
+    : '<li class="muted">No extra Sensei yet.</li>';
 }
 $('#form-coaches').addEventListener('submit', async e => {
   e.preventDefault();
@@ -810,13 +810,13 @@ $('#form-coaches').addEventListener('submit', async e => {
     const list = await api.getCoaches();
     if (!list.includes(email)) await api.saveCoaches([...list, email]);
     e.target.email.value = '';
-    toast(email + ' can now create a coach account');
+    toast(email + ' can now create a Sensei account');
     drawCoaches();
   } catch (err) { toast(errorText(err), 'bad'); }
 });
 $('#coach-list').addEventListener('click', async e => {
   const b = e.target.closest('[data-uncoach]');
-  if (!b || !confirm('Remove ' + b.dataset.uncoach + ' as a coach?')) return;
+  if (!b || !confirm('Remove ' + b.dataset.uncoach + ' as a Sensei?')) return;
   try { await api.saveCoaches((await api.getCoaches()).filter(x => x !== b.dataset.uncoach)); drawCoaches(); } catch (err) { toast(errorText(err), 'bad'); }
 });
 

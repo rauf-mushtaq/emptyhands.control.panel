@@ -470,3 +470,23 @@ button.app-user[aria-current] { background: var(--ink); color: var(--paper); }
 .paid-tracker { margin-bottom: 16px; }
 .paid-tracker .card-head { margin-top: 0; flex-wrap: wrap; }
 .paid-tracker h3 { margin-top: 14px; font-size: 1rem; }
+
+/* Whole fee card is the PayPal link */
+.fee--link { text-decoration: none; color: inherit; cursor: pointer; transition: border-color .15s, box-shadow .15s, transform .1s; }
+.fee--link:hover { border-color: #f0b52a; box-shadow: 0 6px 18px -10px rgba(0, 0, 0, .35); }
+.fee--link:active { transform: scale(.99); }
+.fee--link .btn--paypal { pointer-events: none; }
+
+/* Pay fees: per lesson / per month choice for each class */
+.fee-class h2 { margin-bottom: 10px; }
+.fee-options { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.fee-option { display: grid; gap: 2px; align-content: start; padding: 14px; border: 1px solid var(--paper-3); border-radius: var(--radius); background: #fff; text-decoration: none; color: inherit; }
+a.fee-option { cursor: pointer; transition: border-color .15s, box-shadow .15s, transform .1s; }
+a.fee-option:hover { border-color: #f0b52a; box-shadow: 0 6px 18px -10px rgba(0, 0, 0, .35); }
+a.fee-option:active { transform: scale(.98); }
+.fee-option-label { text-transform: uppercase; letter-spacing: .1em; font-size: .72rem; font-weight: 700; color: var(--bronze); }
+.fee-option > b { font-size: 1.5rem; font-family: var(--serif); }
+.fee-option .btn { margin-top: 10px; pointer-events: none; }
+.fee-option.is-application { background: var(--paper-2); }
+.fee-option.is-application > b { font-size: 1.15rem; }
+@media (max-width: 360px) { .fee-options { grid-template-columns: 1fr; } }

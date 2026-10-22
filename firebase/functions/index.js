@@ -130,7 +130,7 @@ exports.loginEmail = onDocumentCreated({ document: 'loginRequests/{id}', region:
   await event.data.ref.update({ token, status: 'pending', expiresAt: now + LINK_MINUTES * 60e3 });
   const link = `${approveUrl()}?id=${event.params.id}&t=${token}`;
   const html = `<div style="font-family:system-ui,sans-serif;max-width:520px">
-    <h2>Someone is signing in to the EmptyHands coach panel</h2>
+    <h2>Someone is signing in to the EmptyHands Sensei panel</h2>
     <p><b>Account:</b> ${escHtml(r.email)}<br><b>When:</b> ${escHtml(londonTime(now))}<br><b>Device:</b> ${escHtml(r.device)}</p>
     <p>If this is you or one of your Sensei, approve it. If not, decline it and change that account's password.</p>
     <p><a href="${link}" style="display:inline-block;background:#a8342a;color:#fff;padding:12px 22px;border-radius:99px;text-decoration:none;font-weight:700">Review this sign-in</a></p>
@@ -138,8 +138,8 @@ exports.loginEmail = onDocumentCreated({ document: 'loginRequests/{id}', region:
   const res = await fetch('https://api.resend.com/emails', {
     method: 'POST',
     headers: { Authorization: `Bearer ${RESEND_API_KEY.value()}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ from: FROM, to: [OWNER_EMAIL], subject: `Approve coach sign-in: ${r.email}`, html,
-      text: `Someone is signing in to the EmptyHands coach panel as ${r.email} (${londonTime(now)}).\nReview it here (works for ${LINK_MINUTES} minutes): ${link}` }),
+    body: JSON.stringify({ from: FROM, to: [OWNER_EMAIL], subject: `Approve Sensei sign-in: ${r.email}`, html,
+      text: `Someone is signing in to the EmptyHands Sensei panel as ${r.email} (${londonTime(now)}).\nReview it here (works for ${LINK_MINUTES} minutes): ${link}` }),
   });
   if (!res.ok) console.error('approval email failed', res.status, await res.text());
 });
@@ -180,7 +180,7 @@ exports.approveLogin = onRequest({ region: REGION, invoker: 'public' }, async (r
     : { deniedAuthTime: r.authTime, deniedAt: Date.now() }, { merge: true });
   await ref.update({ status: approve ? 'approved' : 'declined', decidedAt: Date.now(), token: null });
   page(res, 200, approve ? 'Sign-in approved' : 'Sign-in declined', approve
-    ? `<p><b>${escHtml(r.email)}</b> can now use the coach panel on that device.</p>`
+    ? `<p><b>${escHtml(r.email)}</b> can now use the Sensei panel on that device.</p>`
     : `<p>The sign-in for <b>${escHtml(r.email)}</b> was declined and has been signed out. If you didn’t expect it, change that account’s password.</p>`);
 });
 

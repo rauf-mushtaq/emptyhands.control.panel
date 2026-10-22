@@ -73,11 +73,10 @@ export function timeAgo(ms) {
 // `level` links a monthly fee or grading to belts, so the student app can highlight theirs.
 export const DEFAULT_FEES = [
   { id: 'membership', group: 'karate', name: 'Annual membership', price: 40, per: 'year', note: 'Dojo licence and insurance' },
-  { id: 'starter', group: 'karate', name: 'New starter lesson', price: 10, per: 'lesson', note: 'Pay-as-you-go for your first few weeks' },
+  { id: 'starter', group: 'karate', name: 'Karate per lesson', price: 10, per: 'lesson', note: 'Pay as you go' },
   { id: 'k-beg', group: 'karate', name: 'Karate monthly — Beginner', price: 30, per: 'month', note: 'White to Orange belt', level: 'beginner' },
   { id: 'k-int', group: 'karate', name: 'Karate monthly — Intermediate', price: 35, per: 'month', note: 'Yellow to Green belt', level: 'intermediate' },
-  { id: 'k-adv', group: 'karate', name: 'Karate monthly — Advanced', price: 40, per: 'month', note: 'Purple to Brown belt', level: 'advanced' },
-  { id: 'k-advx', group: 'karate', name: 'Karate monthly — Advanced (extended)', price: 50, per: 'month', note: 'Purple to Brown belt, 6:30pm – 9pm', level: 'advanced' },
+  { id: 'k-adv', group: 'karate', name: 'Karate monthly — Advanced', price: 40, per: 'month', note: 'Purple belt', level: 'advanced' },
   { id: 'g-beg', group: 'grading', name: 'Grading — Beginner', price: 25, per: '', note: 'White to Orange belt', level: 'beginner' },
   { id: 'g-int', group: 'grading', name: 'Grading — Intermediate', price: 30, per: '', note: 'Yellow to Green belt', level: 'intermediate' },
   { id: 'g-adv', group: 'grading', name: 'Grading — Advanced', price: 35, per: '', note: 'Purple to Brown belt', level: 'advanced' },
@@ -90,11 +89,12 @@ export const DEFAULT_FEES = [
 export const FEE_GROUPS = { karate: 'Karate', grading: 'Gradings', yoga: 'Yoga', taichi: 'Tai Chi', other: 'Other' };
 export const FEE_LEVELS = { beginner: 'Beginner', intermediate: 'Intermediate', advanced: 'Advanced', advanced2: 'Advanced II' };
 
-// Belt → fee level, for highlighting a student's monthly fee and grading.
+// Belt → monthly fee level. Brown belt and above pay a monthly fee agreed with Sensei
+// ('application'), so the student app shows "On application" instead of a price.
 export function feeLevel(grade) {
   if (['yellow', 'green'].includes(grade)) return 'intermediate';
-  if (['purple', 'purple1', 'brown', 'brown1'].includes(grade)) return 'advanced';
-  if (['brown2', 'dan'].includes(grade)) return 'advanced2';
+  if (['purple', 'purple1'].includes(grade)) return 'advanced';
+  if (['brown', 'brown1', 'brown2', 'dan'].includes(grade)) return 'application';
   return 'beginner';
 }
 export const money = n => '£' + (Math.round(n * 100) / 100).toFixed(n % 1 ? 2 : 0);
@@ -102,12 +102,15 @@ export const money = n => '£' + (Math.round(n * 100) / 100).toFixed(n % 1 ? 2 :
 // A PayPal "Buy now" link (PayPal Payments Standard). `paypal` is the business account's email
 // or merchant ID; the student's name goes in the item name so Sensei can see who paid.
 // With `track` ({ uid, notifyUrl }), PayPal also tells our paypalIpn function about the payment,
-// which records it for that student (custom = uid|fee id|month).
-export function paypalLink(paypal, fee, who, track) {
+// which records it for that student (custom = uid|fee id|month). `back` is where PayPal returns
+// people afterwards. landing_page=billing opens PayPal on its card form, so no PayPal account is needed.
+export function paypalLink(paypal, fee, who, track, back) {
   const q = new URLSearchParams({
     cmd: '_xclick', business: paypal, item_name: fee.name + (who ? ' — ' + who : ''),
-    amount: Number(fee.price).toFixed(2), currency_code: 'GBP', no_shipping: '1',
+    amount: Number(fee.price).toFixed(2), currency_code: 'GBP', no_shipping: '1', no_note: '1',
+    landing_page: 'billing', solution_type: 'Sole',
   });
+  if (back) { q.set('return', back + '#pay'); q.set('cancel_return', back + '#pay'); q.set('rm', '1'); q.set('cbt', 'Back to EmptyHands'); }
   if (track) { q.set('custom', [track.uid, fee.id, monthKey()].join('|')); q.set('notify_url', track.notifyUrl); }
   return 'https://www.paypal.com/cgi-bin/webscr?' + q;
 }
@@ -121,6 +124,7 @@ export const isMonthly = pmt => pmt.kind === 'monthly';
 // The monthly Karate fee for a belt, for Sensei's "Mark paid" default.
 export function monthlyFeeFor(fees, p) {
   const lvl = feeLevel(p.grade);
+  if (lvl === 'application') return null;
   return fees.find(f => f.per === 'month' && f.level === lvl && (p.disciplines || []).includes(f.group))
     || fees.find(f => f.per === 'month' && (p.disciplines || []).includes(f.group))
     || fees.find(f => f.per === 'month');
