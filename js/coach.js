@@ -57,8 +57,7 @@ $('#form-auth').addEventListener('submit', async e => {
     try {
       if (mode === 'signup') {
         try { localStorage.setItem(NAME_KEY, form.name.value.trim()); } catch { /* storage blocked */ }
-        await api.signUp(form.email.value, form.password.value, { coach: true });
-        if (!DEMO) await api.sendVerification();
+        await api.signUp(form.email.value, form.password.value, { coach: true }); // the verification link is sent on the next screen
       } else {
         await api.signIn(form.email.value, form.password.value);
       }
@@ -131,6 +130,13 @@ async function onAuth(user) {
       : `<b>${esc(user.email)}</b> isn’t on the Sensei list. Ask a head Sensei to add it under <i>Sensei</i>, then verify your email.`;
     $('#resend').hidden = user.emailVerified;
     show('denied');
+    // A new account that was never verified: send the link now (once per sign-in), as the screen says.
+    if (!user.emailVerified && listed && !DEMO) {
+      const key = 'eh-verify-sent-' + user.uid;
+      let sent = false;
+      try { sent = !!sessionStorage.getItem(key); sessionStorage.setItem(key, '1'); } catch { /* storage blocked */ }
+      if (!sent) api.sendVerification().catch(err => console.warn(err));
+    }
     return;
   }
   if (COACH_LOGIN_APPROVAL && !(await approved(user))) return;
