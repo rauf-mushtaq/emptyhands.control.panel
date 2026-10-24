@@ -65,10 +65,11 @@ service cloud.firestore {
       allow update: if isCoach()
         || (signedIn() && request.auth.uid == uid
             && request.resource.data.diff(resource.data).affectedKeys()
-                 .hasOnly(['name', 'guardian', 'phone', 'disciplines', 'dojo', 'grade', 'lastRead', 'seen', 'pushTokens', 'homeworkDone'])
+                 .hasOnly(['name', 'guardian', 'phone', 'disciplines', 'dojo', 'grade', 'lastRead', 'seen', 'pushTokens', 'homeworkDone', 'classReminders'])
             && (resource.data.role == 'pending' || !request.resource.data.diff(resource.data).affectedKeys().hasAny(['grade']))
             && validProfile(request.resource.data)
-            && request.resource.data.get('pushTokens', []).size() <= 20);
+            && request.resource.data.get('pushTokens', []).size() <= 20
+            && request.resource.data.get('classReminders', true) is bool);
       allow delete: if isCoach() || (signedIn() && request.auth.uid == uid);
     }
 
@@ -173,6 +174,15 @@ service cloud.firestore {
     match /settings/payments {
       allow read: if signedIn();
       allow write: if isCoach();
+    }
+
+    // Each Sensei's devices for push notifications (read only by the Cloud Functions otherwise).
+    match /coachDevices/{uid} {
+      allow read, delete: if isCoach() && request.auth.uid == uid;
+      allow create, update: if isCoach() && request.auth.uid == uid
+        && request.resource.data.keys().hasOnly(['email', 'pushTokens', 'updatedAt'])
+        && request.resource.data.email == email()
+        && request.resource.data.pushTokens is list && request.resource.data.pushTokens.size() <= 20;
     }
 
     // Coach list: coaches manage it.

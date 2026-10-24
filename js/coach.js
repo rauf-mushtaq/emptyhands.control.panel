@@ -1,5 +1,6 @@
 import { backend, DEMO, isCoach, errorText } from './backend.js';
 import { OWNER_EMAILS, STUDENT_URL, COACH_LOGIN_APPROVAL } from './config.js';
+import { webPushReady, webPushToken } from './webpush.js';
 import {
   $, $$, esc, GRADES, DISCIPLINES, DOJOS, AUDIENCES, renderYear, legendHTML, loadCalendar, calendarYears,
   noticeIsFor, homeworkIsFor, DEFAULT_FEES, FEE_GROUPS, FEE_LEVELS, paypalLink, longDate,
@@ -69,7 +70,12 @@ $('#forgot').addEventListener('click', async () => {
   if (!form.email.value.trim()) return showError(form, 'Enter your email above first.');
   try { await api.resetPassword(form.email.value); toast('Password reset email sent'); } catch (err) { showError(form, errorText(err)); }
 });
-$('#signout').addEventListener('click', () => { if (!ed.dirty || confirm('You have unpublished calendar changes. Sign out anyway?')) api.signOut(); });
+$('#signout').addEventListener('click', async () => {
+  if (ed.dirty && !confirm('You have unpublished calendar changes. Sign out anyway?')) return;
+  // Stop notifications to this device once signed out.
+  if (state.pushToken) { try { await api.removeCoachDevice(state.user.uid, state.user.email, state.pushToken); } catch (e) { console.warn(e); } state.pushToken = null; }
+  api.signOut();
+});
 $('#denied-signout').addEventListener('click', () => api.signOut());
 $('#resend').addEventListener('click', async () => {
   try { await api.sendVerification(); toast('Verification email sent to ' + state.user.email + ' — check Junk / Spam too'); } catch (err) { toast(errorText(err), 'bad'); }
@@ -111,6 +117,36 @@ $('#approval-resend').addEventListener('click', async () => {
 });
 $('#approval-signout').addEventListener('click', () => api.signOut());
 
+// ---- notifications for Sensei: students' messages, join requests and PayPal payments ----
+const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+const standalone = () => matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
+async function coachPush(ask) {
+  try {
+    const t = await webPushToken(ask);
+    if (t && state.user) { await api.addCoachDevice(state.user.uid, state.user.email, t); state.pushToken = t; }
+    if (ask) toast(t ? 'Notifications on for this device.' : 'Notifications are off. You can allow them in your device’s Settings.');
+  } catch (err) { console.warn(err); if (ask) toast('Couldn’t turn on notifications. Please try again.', 'bad'); }
+  drawNotify();
+}
+function drawNotify() {
+  const on = !!state.pushToken;
+  let can = false, status;
+  if (DEMO) status = 'Notifications work once the Sensei panel is connected to Firebase.';
+  else if (webPushReady()) {
+    can = !on && Notification.permission !== 'denied';
+    status = on ? 'On for this device.' : Notification.permission === 'denied' ? 'Blocked in your browser settings. Allow notifications for this site to turn them on.' : 'Off for this device.';
+  } else if (isIOS && !standalone()) status = 'On iPad and iPhone, first add the Sensei panel to your home screen (Share → Add to Home Screen), open it from there, then turn on notifications.';
+  else status = 'Notifications aren’t available on this device yet.';
+  $$('[data-notify-on]').forEach(b => { b.hidden = !can; });
+  $('#notify-status').textContent = status;
+}
+document.addEventListener('click', e => { if (e.target.closest('[data-notify-on]')) coachPush(true); });
+// Tapping a notification opens the right tab (e.g. #requests).
+addEventListener('hashchange', () => {
+  const id = location.hash.slice(1);
+  if (state.user && $('#view-' + id) && !['auth', 'denied', 'approval'].includes(id) && !$('#coach-tabs').hidden) show(id);
+});
+
 async function onAuth(user) {
   state.stops.forEach(stop => stop && stop());
   state.stops = [];
@@ -140,6 +176,7 @@ async function onAuth(user) {
     return;
   }
   if (COACH_LOGIN_APPROVAL && !(await approved(user))) return;
+  if (!DEMO && webPushReady() && Notification.permission === 'granted') coachPush(false); else drawNotify();
   $('#form-notice [name=from]').value = savedName();
   $('#reply-from').value = savedName();
   $('#form-homework').from.value = savedName();

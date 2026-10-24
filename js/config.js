@@ -31,7 +31,12 @@ export const COACH_LOGIN_APPROVAL = false;
 //    recorded against the student by the paypalIpn function. Switch on only after deploying it.
 export const PAYPAL_AUTO_TRACK = false;
 
-// 6. The recommended YouTube channel shown in the student app's EmptyHands menu.
+// 6. Web push key, for notifications on the website and home-screen apps (the phone apps don't
+//    need it). Firebase console → Project settings → Cloud Messaging → Web Push certificates →
+//    Generate key pair, then paste the key here. Empty = no notifications on the web yet.
+export const WEB_PUSH_KEY = '';
+
+// 7. The recommended YouTube channel shown in the student app's EmptyHands chats.
 //    Paste the channel's own address here (e.g. https://www.youtube.com/@ChannelName).
 export const RECOMMENDED = {
   name: 'Shotokan Karate Academy',

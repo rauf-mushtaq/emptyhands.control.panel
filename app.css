@@ -533,3 +533,9 @@ body.in-chat .chat-compose { flex: none; position: static; }
   body.in-chat #view-menu .view-head { margin-bottom: 8px; }
   body.in-chat #view-menu .eyebrow { display: none; }
 }
+
+/* Notifications */
+.notify-card { margin-top: 16px; }
+.notify-card h2 { margin: 0; font-size: 1.1rem; }
+.notify-card .btn { justify-self: start; }
+.notify-quick { float: right; margin-left: 8px; }
