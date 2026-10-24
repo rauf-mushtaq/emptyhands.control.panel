@@ -5,8 +5,6 @@
 const { onDocumentCreated } = require('firebase-functions/v2/firestore');
 const { onRequest } = require('firebase-functions/v2/https');
 const { onSchedule } = require('firebase-functions/v2/scheduler');
-const { defineSecret } = require('firebase-functions/params');
-const crypto = require('node:crypto');
 const { initializeApp } = require('firebase-admin/app');
 const { getFirestore, FieldValue } = require('firebase-admin/firestore');
 const { getMessaging } = require('firebase-admin/messaging');
@@ -178,81 +176,6 @@ exports.classReminders = onSchedule({ schedule: '*/5 * * * *', timeZone: 'Europe
     await send(plain, { title, body }, { reminder: c.key }, STUDENT_URL + '#calendar');
     if (owing.length) await send(owing, { title, body: body + ' Your fees for this month aren’t paid yet: pay per lesson or monthly in the app, or at the dojo.' }, { reminder: c.key }, STUDENT_URL + '#pay');
   }
-});
-
-// ---- Coach sign-in approval ----
-// Every new sign-in to the coach panel creates loginRequests/{id}. loginEmail emails the owner a
-// link; approveLogin shows the sign-in details with Approve / Decline buttons and, on approve,
-// writes coachSessions/{uid}, which the security rules require before any coach access.
-// Emails go through Resend (resend.com); its API key is the RESEND_API_KEY secret.
-// Off on this branch (js/config.js COACH_LOGIN_APPROVAL); the login-approval branch turns it on.
-const LOGIN_APPROVAL = false;
-const RESEND_API_KEY = defineSecret('RESEND_API_KEY');
-const FROM = 'EmptyHands <onboarding@resend.dev>';
-const LINK_MINUTES = 15;
-const approveUrl = () => `https://${REGION}-${process.env.GCLOUD_PROJECT}.cloudfunctions.net/approveLogin`;
-const escHtml = v => String(v ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
-const londonTime = ms => new Date(ms).toLocaleString('en-GB', { timeZone: 'Europe/London', dateStyle: 'medium', timeStyle: 'short' });
-
-if (LOGIN_APPROVAL) exports.loginEmail = onDocumentCreated({ document: 'loginRequests/{id}', region: REGION, secrets: [RESEND_API_KEY] }, async event => {
-  const r = event.data.data();
-  const token = crypto.randomBytes(24).toString('hex');
-  const now = Date.now();
-  await event.data.ref.update({ token, status: 'pending', expiresAt: now + LINK_MINUTES * 60e3 });
-  const link = `${approveUrl()}?id=${event.params.id}&t=${token}`;
-  const html = `<div style="font-family:system-ui,sans-serif;max-width:520px">
-    <h2>Someone is signing in to the EmptyHands Sensei panel</h2>
-    <p><b>Account:</b> ${escHtml(r.email)}<br><b>When:</b> ${escHtml(londonTime(now))}<br><b>Device:</b> ${escHtml(r.device)}</p>
-    <p>If this is you or one of your Sensei, approve it. If not, decline it and change that account's password.</p>
-    <p><a href="${link}" style="display:inline-block;background:#a8342a;color:#fff;padding:12px 22px;border-radius:99px;text-decoration:none;font-weight:700">Review this sign-in</a></p>
-    <p style="color:#777;font-size:13px">The link works for ${LINK_MINUTES} minutes.</p></div>`;
-  const res = await fetch('https://api.resend.com/emails', {
-    method: 'POST',
-    headers: { Authorization: `Bearer ${RESEND_API_KEY.value()}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ from: FROM, to: [OWNER_EMAIL], subject: `Approve Sensei sign-in: ${r.email}`, html,
-      text: `Someone is signing in to the EmptyHands Sensei panel as ${r.email} (${londonTime(now)}).\nReview it here (works for ${LINK_MINUTES} minutes): ${link}` }),
-  });
-  if (!res.ok) console.error('approval email failed', res.status, await res.text());
-});
-
-function page(res, status, title, body) {
-  res.status(status).set('Content-Type', 'text/html; charset=utf-8').set('Cache-Control', 'no-store').send(`<!doctype html>
-<html lang="en-GB"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="robots" content="noindex">
-<title>${escHtml(title)} · EmptyHands</title><style>body{font-family:system-ui,sans-serif;background:#f6f2ea;color:#1c1a16;margin:0;padding:24px 16px}
-main{max-width:460px;margin:8vh auto;background:#fffdf8;border:1px solid rgba(0,0,0,.1);border-radius:16px;padding:24px}
-h1{font-size:1.4rem;margin:0 0 12px}button{font:inherit;font-weight:700;border-radius:99px;padding:12px 22px;border:1px solid #1c1a16;cursor:pointer;margin:6px 6px 0 0}
-.ok{background:#a8342a;border-color:#a8342a;color:#fff}.no{background:#fff}dl{margin:0 0 16px}dt{font-size:.8rem;color:#7b7466}dd{margin:0 0 8px;overflow-wrap:anywhere}</style></head>
-<body><main><h1>${escHtml(title)}</h1>${body}</main></body></html>`);
-}
-
-if (LOGIN_APPROVAL) exports.approveLogin = onRequest({ region: REGION, invoker: 'public' }, async (req, res) => {
-  const id = String((req.body && req.body.id) || req.query.id || '');
-  const t = String((req.body && req.body.t) || req.query.t || '');
-  if (!/^[A-Za-z0-9]{10,40}$/.test(id) || !/^[a-f0-9]{48}$/.test(t)) return page(res, 400, 'Link not valid', '<p>This approval link is incomplete.</p>');
-  const db = getFirestore();
-  const ref = db.doc('loginRequests/' + id);
-  const snap = await ref.get();
-  const r = snap.exists ? snap.data() : null;
-  const tokenOk = r && r.token && crypto.timingSafeEqual(Buffer.from(r.token), Buffer.from(t));
-  if (!tokenOk) return page(res, 404, 'Link not valid', '<p>This approval link isn’t valid.</p>');
-  if (r.status !== 'pending') return page(res, 200, 'Already done', `<p>This sign-in was already <b>${escHtml(r.status)}</b>.</p>`);
-  if (Date.now() > r.expiresAt) return page(res, 410, 'Link expired', '<p>This link has expired. On the coach panel, tap “Send the email again”.</p>');
-
-  // Showing the page never approves anything (email scanners open links); only the buttons do.
-  if (req.method !== 'POST') {
-    return page(res, 200, 'Approve this sign-in?', `<dl><dt>Account</dt><dd>${escHtml(r.email)}</dd>
-      <dt>Device</dt><dd>${escHtml(r.device)}</dd></dl>
-      <form method="post"><input type="hidden" name="id" value="${escHtml(id)}"><input type="hidden" name="t" value="${escHtml(t)}">
-      <button class="ok" name="action" value="approve">Approve</button><button class="no" name="action" value="deny">Decline</button></form>`);
-  }
-  const approve = req.body && req.body.action === 'approve';
-  await db.doc('coachSessions/' + r.uid).set(approve
-    ? { authTime: r.authTime, email: r.email, approvedAt: Date.now() }
-    : { deniedAuthTime: r.authTime, deniedAt: Date.now() }, { merge: true });
-  await ref.update({ status: approve ? 'approved' : 'declined', decidedAt: Date.now(), token: null });
-  page(res, 200, approve ? 'Sign-in approved' : 'Sign-in declined', approve
-    ? `<p><b>${escHtml(r.email)}</b> can now use the Sensei panel on that device.</p>`
-    : `<p>The sign-in for <b>${escHtml(r.email)}</b> was declined and has been signed out. If you didn’t expect it, change that account’s password.</p>`);
 });
 
 // ---- Fees: PayPal payment tracking and monthly reminders ----

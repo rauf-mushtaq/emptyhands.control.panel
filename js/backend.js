@@ -11,12 +11,11 @@ export async function backend() {
   return api;
 }
 
-// A coach is an owner or listed in settings/coaches, with a verified email.
+// A coach is an owner or listed in settings/coaches.
 export async function isCoach(user) {
   if (!user) return false;
   const b = await backend();
   if (DEMO) return b.isDemoCoach(user);
-  if (!user.emailVerified) return false;
   if (OWNERS.includes(user.email)) return true;
   try { return (await b.getCoaches()).includes(user.email); } catch { return false; }
 }
@@ -45,7 +44,7 @@ async function firebaseBackend() {
   const auth = A.initializeAuth(app, { persistence: [A.indexedDBLocalPersistence, A.browserLocalPersistence] });
   const db = F.getFirestore(app);
   const ref = (...p) => F.doc(db, ...p);
-  const wrap = u => u && { uid: u.uid, email: (u.email || '').toLowerCase(), emailVerified: u.emailVerified };
+  const wrap = u => u && { uid: u.uid, email: (u.email || '').toLowerCase() };
   const rows = snap => snap.docs.map(d => ({ id: d.id, ...d.data() }));
   const millis = t => (t && t.toMillis ? t.toMillis() : Date.now());
 
@@ -55,7 +54,6 @@ async function firebaseBackend() {
     signIn: async (email, pw) => wrap((await A.signInWithEmailAndPassword(auth, email.trim(), pw)).user),
     signOut: () => A.signOut(auth),
     resetPassword: email => A.sendPasswordResetEmail(auth, email.trim()),
-    sendVerification: () => A.sendEmailVerification(auth.currentUser),
     reloadUser: async () => {
       await auth.currentUser.reload();
       await auth.currentUser.getIdToken(true);
@@ -141,14 +139,6 @@ async function firebaseBackend() {
 
     getCoaches: async () => { const s = await F.getDoc(ref('settings', 'coaches')); return s.exists() ? s.data().emails || [] : []; },
 
-    // Coach sign-in approval. A sign-in is identified by the token's auth_time; the panel asks for
-    // approval with a loginRequests doc, and a Cloud Function emails the owner a link that writes
-    // coachSessions/{uid} once approved.
-    signInTime: async () => +(await auth.currentUser.getIdTokenResult()).claims.auth_time,
-    requestCoachLogin: async (uid, email, authTime) => F.addDoc(F.collection(db, 'loginRequests'),
-      { uid, email, authTime, device: navigator.userAgent.slice(0, 300), createdAt: F.serverTimestamp() }),
-    watchCoachSession: (uid, cb) => F.onSnapshot(ref('coachSessions', uid), s => cb(s.exists() ? s.data() : null), () => cb(null)),
-    refreshToken: () => auth.currentUser.getIdToken(true),
     saveCoaches: emails => F.setDoc(ref('settings', 'coaches'), { emails }),
     getPayments: async () => { const s = await F.getDoc(ref('settings', 'payments')); return s.exists() ? s.data() : null; },
     // Payment records: written by Sensei (cash etc.) or the paypalIpn function; students read their own.
@@ -174,7 +164,7 @@ function demoBackend() {
   const me = () => {
     const uid = load('session', null);
     const hit = Object.entries(accounts()).find(([, a]) => a.uid === uid);
-    return hit ? { uid, email: hit[0], emailVerified: true } : null;
+    return hit ? { uid, email: hit[0] } : null;
   };
   const notes = () => load('notifications', []).sort((a, b) => b.createdAt - a.createdAt);
   const emitAuth = () => { const u = me(); authCbs.forEach(cb => cb(u)); };
@@ -224,7 +214,6 @@ function demoBackend() {
     },
     signOut: async () => { store('session', null); emitAuth(); },
     resetPassword: async () => {},
-    sendVerification: async () => {},
     reloadUser: async () => me(),
     reauthenticate: async pw => { if ((accounts()[me().email] || {}).pw !== pw) fail('auth/invalid-credential'); },
     deleteAccount: async () => {
@@ -281,11 +270,6 @@ function demoBackend() {
     listCalendarYears: async () => Object.keys(cals.all()).map(Number),
 
     getCoaches: async () => load('coaches', []),
-    // Demo mode has no email: sign-ins are approved straight away.
-    signInTime: async () => 1,
-    requestCoachLogin: async () => {},
-    watchCoachSession: (uid, cb) => { setTimeout(() => cb({ authTime: 1 })); return () => {}; },
-    refreshToken: async () => {},
     saveCoaches: async emails => store('coaches', emails),
     getPayments: async () => load('payments', null),
     watchMyPayments: (uid, cb) => watch('pmts', () => load('pmts', []).filter(p => p.uid === uid).sort((a, b) => b.at - a.at), cb),

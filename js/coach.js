@@ -1,5 +1,5 @@
 import { backend, DEMO, isCoach, errorText } from './backend.js';
-import { OWNER_EMAILS, STUDENT_URL, COACH_LOGIN_APPROVAL } from './config.js';
+import { OWNER_EMAILS, STUDENT_URL } from './config.js';
 import { webPushReady, webPushToken } from './webpush.js';
 import {
   $, $$, esc, GRADES, DISCIPLINES, DOJOS, AUDIENCES, renderYear, legendHTML, loadCalendar, calendarYears,
@@ -18,7 +18,7 @@ function showError(form, msg) { const el = $('.form-error', form); el.textConten
 function show(id) {
   $('#loading').hidden = true;
   $$('.view').forEach(v => { v.hidden = v.id !== 'view-' + id; });
-  const inside = !['auth', 'denied', 'approval'].includes(id);
+  const inside = !['auth', 'denied'].includes(id);
   $('#coach-tabs').hidden = !inside;
   $('#signout').hidden = !inside;
   $$('#coach-tabs button').forEach(b => b.toggleAttribute('aria-current', b.dataset.go === id));
@@ -58,7 +58,7 @@ $('#form-auth').addEventListener('submit', async e => {
     try {
       if (mode === 'signup') {
         try { localStorage.setItem(NAME_KEY, form.name.value.trim()); } catch { /* storage blocked */ }
-        await api.signUp(form.email.value, form.password.value, { coach: true }); // the verification link is sent on the next screen
+        await api.signUp(form.email.value, form.password.value, { coach: true });
       } else {
         await api.signIn(form.email.value, form.password.value);
       }
@@ -77,45 +77,7 @@ $('#signout').addEventListener('click', async () => {
   api.signOut();
 });
 $('#denied-signout').addEventListener('click', () => api.signOut());
-$('#resend').addEventListener('click', async () => {
-  try { await api.sendVerification(); toast('Verification email sent to ' + state.user.email + ' — check Junk / Spam too'); } catch (err) { toast(errorText(err), 'bad'); }
-});
-$('#recheck').addEventListener('click', async () => onAuth(await api.reloadUser()));
-
-// ---- sign-in approval: each new sign-in waits for the owner to approve it by email ----
-const OWNER = OWNER_EMAILS[0];
-async function approved(user) {
-  const authTime = await api.signInTime();
-  const session = await new Promise(res => { const stop = api.watchCoachSession(user.uid, s => { stop(); res(s); }); });
-  if (session && session.authTime === authTime) return true;
-  $('#approval-why').innerHTML = `For security, we’ve emailed <b>${esc(OWNER)}</b> to check it’s really you signing in as <b>${esc(user.email)}</b>. Open that email and tap <b>Approve</b>.`;
-  show('approval');
-  await askApproval(user, authTime);
-  state.stops.push(api.watchCoachSession(user.uid, async s => {
-    if (!s || state.user !== user) return;
-    if (s.deniedAuthTime === authTime) {
-      toast('This sign-in was declined.', 'bad');
-      api.signOut();
-    } else if (s.authTime === authTime) {
-      await api.refreshToken();
-      toast('Sign-in approved');
-      onAuth(user);
-    }
-  }));
-  return false;
-}
-let lastAsk = 0;
-async function askApproval(user, authTime) {
-  if (Date.now() - lastAsk < 30000) return toast('Please wait a moment before sending another email.');
-  lastAsk = Date.now();
-  try { await api.requestCoachLogin(user.uid, user.email, authTime); } catch (err) { toast(errorText(err), 'bad'); }
-}
-$('#approval-resend').addEventListener('click', async () => {
-  if (!state.user) return;
-  await askApproval(state.user, await api.signInTime());
-  toast('Approval email sent to ' + OWNER);
-});
-$('#approval-signout').addEventListener('click', () => api.signOut());
+$('#recheck').addEventListener('click', () => onAuth(state.user));
 
 // ---- notifications for Sensei: students' messages, join requests and PayPal payments ----
 const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
@@ -144,7 +106,7 @@ document.addEventListener('click', e => { if (e.target.closest('[data-notify-on]
 // Tapping a notification opens the right tab (e.g. #requests).
 addEventListener('hashchange', () => {
   const id = location.hash.slice(1);
-  if (state.user && $('#view-' + id) && !['auth', 'denied', 'approval'].includes(id) && !$('#coach-tabs').hidden) show(id);
+  if (state.user && $('#view-' + id) && !['auth', 'denied'].includes(id) && !$('#coach-tabs').hidden) show(id);
 });
 
 async function onAuth(user) {
@@ -154,28 +116,11 @@ async function onAuth(user) {
   state.requests = null;
   state.user = user;
   if (!user) { show('auth'); return; }
-  // A device that signed in before the email was verified remembers the old status; refresh it.
-  if (!user.emailVerified && !DEMO) {
-    user = await api.reloadUser().catch(() => user);
-    state.user = user;
-  }
   if (!(await isCoach(user))) {
-    const listed = OWNER_EMAILS.map(x => x.toLowerCase()).includes(user.email) || (await api.getCoaches().catch(() => [])).includes(user.email);
-    $('#denied-why').innerHTML = !user.emailVerified && listed
-      ? `We’ve sent a verification link to <b>${esc(user.email)}</b>. Open it, then come back and press “check again”. It comes from <b>noreply@emptyhands-student-portal.firebaseapp.com</b>, so if it isn’t there within a few minutes, look in <b>Junk / Spam</b>.`
-      : `<b>${esc(user.email)}</b> isn’t on the Sensei list. Ask a head Sensei to add it under <i>Sensei</i>, then verify your email.`;
-    $('#resend').hidden = user.emailVerified;
+    $('#denied-why').innerHTML = `<b>${esc(user.email)}</b> isn’t on the Sensei list. Ask a head Sensei to add it under <i>Sensei</i>, then tap “Check again”.`;
     show('denied');
-    // A new account that was never verified: send the link now (once per sign-in), as the screen says.
-    if (!user.emailVerified && listed && !DEMO) {
-      const key = 'eh-verify-sent-' + user.uid;
-      let sent = false;
-      try { sent = !!sessionStorage.getItem(key); sessionStorage.setItem(key, '1'); } catch { /* storage blocked */ }
-      if (!sent) api.sendVerification().catch(err => console.warn(err));
-    }
     return;
   }
-  if (COACH_LOGIN_APPROVAL && !(await approved(user))) return;
   if (!DEMO && webPushReady() && Notification.permission === 'granted') coachPush(false); else drawNotify();
   $('#form-notice [name=from]').value = savedName();
   $('#reply-from').value = savedName();
@@ -601,8 +546,8 @@ function markOpenRead() {
 }
 document.addEventListener('visibilitychange', () => {
   if (state.open) markOpenRead();
-  // Back from tapping the verification link: let them straight in.
-  if (!document.hidden && state.user && !state.user.emailVerified && !$('#view-denied').hidden) onAuth(state.user);
+  // Back on the "not a Sensei account" screen: check again in case they've been added.
+  if (!document.hidden && state.user && !$('#view-denied').hidden) onAuth(state.user);
 });
 
 const replyText = $('#reply-text');

@@ -15,8 +15,7 @@ service cloud.firestore {
         ? get(/databases/$(database)/documents/settings/coaches).data.emails : [];
     }
     function isCoach() {
-      return signedIn() && request.auth.token.email_verified == true
-        && (email() in OWNERS() || email() in coachList());
+      return signedIn() && (email() in OWNERS() || email() in coachList());
     }
     function isStudent() {
       return signedIn() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'student';

@@ -64,23 +64,12 @@
       <h1>Not a Sensei account yet</h1>
       <p id="denied-why"></p>
       <div class="stack">
-        <button class="btn btn--seal btn--block" id="recheck">I’ve verified — check again</button>
-        <button class="btn btn--ghost btn--block" id="resend">Resend verification email</button>
+        <button class="btn btn--seal btn--block" id="recheck">Check again</button>
         <button class="btn btn--ghost btn--block" id="denied-signout">Sign out</button>
       </div>
     </div>
   </section>
 
-  <section class="view auth" id="view-approval" hidden>
-    <div class="auth-card stack">
-      <div class="auth-kanji" aria-hidden="true">確認</div>
-      <h1>Approve this sign-in</h1>
-      <p id="approval-why"></p>
-      <p class="muted fine">This page opens by itself once the sign-in is approved. The link works for 15 minutes.</p>
-      <button class="btn btn--ghost btn--block" id="approval-resend">Send the email again</button>
-      <button class="btn btn--ghost btn--block" id="approval-signout">Sign out</button>
-    </div>
-  </section>
 
   <!-- Join requests -->
   <section class="view" id="view-requests" hidden>
@@ -290,7 +279,7 @@
       </div>
       <form class="card stack" id="form-coaches">
         <h2>Sensei</h2>
-        <p class="muted fine">Anyone on this list can send notices, see students and edit the calendar once they create a Sensei account with that email and verify it.</p>
+        <p class="muted fine">Anyone on this list can send notices, see students and edit the calendar once they create a Sensei account with that email. Add someone only when they’re ready to create their account.</p>
         <ul class="plain" id="coach-list"></ul>
         <div class="inline-form"><input type="email" name="email" placeholder="sensei@example.com" aria-label="Sensei email" required><button class="btn btn--sm" type="submit">Add Sensei</button></div>
       </form>

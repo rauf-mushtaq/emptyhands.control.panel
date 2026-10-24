@@ -29,7 +29,7 @@ In each repository: **Settings → Pages → Build and deployment → Deploy fro
 5. In Firestore, open the **Rules** tab, replace what's there with everything from `firebase/firestore.rules`, and press **Publish**.
 6. **Project settings (⚙) → General → Your apps → Web (`</>`)**. Register the app (no hosting needed) and copy the `firebaseConfig` values into `js/config.js` **in both repositories**.
 7. Head coaches: put your coach email(s) in `OWNER_EMAILS` in `js/config.js` (both repositories) and in `OWNERS()` in `firebase/firestore.rules`. It's set to `info@emptyhands.co.uk` for now. Re-publish the rules if you change them.
-8. Commit, then open the coach panel, choose **New coach account** with a head-coach email, click the link in the verification email, and press **check again**.
+8. Commit, then open the coach panel, choose **New coach account** with a head-coach email. It opens straight away.
 
 The Firebase config values aren't secret. The security rules are what protect the data: only registered students can read notices, only coaches can see the student list, send notices or publish calendars, and students can only edit their own profile.
 
@@ -64,22 +64,6 @@ Notices follow the audience you chose when sending.
 ## Shared files
 
 `app.css` and everything in `js/` except `coach.js` are the same as in emptyhands.student. If you change one of them, copy the change to the other repository.
-
-## Coach sign-in approval (email to info@emptyhands.co.uk)
-
-When `COACH_LOGIN_APPROVAL` is `true` in `js/config.js`, every new sign-in to the coach panel shows "Approve this sign-in" and emails **info@emptyhands.co.uk** a link with **Approve / Decline** buttons. The panel opens by itself once approved; a declined sign-in is signed out. The security rules require an approved sign-in for every coach action, so a stolen password alone isn't enough.
-
-It needs the Blaze plan, a [Resend](https://resend.com) account created with info@emptyhands.co.uk (free), and deploying the functions, secret and rules together:
-
-```sh
-cd firebase
-firebase functions:secrets:set RESEND_API_KEY     # paste the Resend API key
-firebase deploy --only functions,firestore:rules
-```
-
-Then set `COACH_LOGIN_APPROVAL = true` in `js/config.js` in both repositories.
-
-**Locked out?** (e.g. email not arriving) In the Firebase console → Firestore → Rules, publish the previous rules version from the rules history, and set `COACH_LOGIN_APPROVAL = false`.
 
 ## Fees: who has paid, and reminders
 
