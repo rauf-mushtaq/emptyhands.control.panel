@@ -185,8 +185,8 @@ exports.classReminders = onSchedule({ schedule: '*/5 * * * *', timeZone: 'Europe
 // link; approveLogin shows the sign-in details with Approve / Decline buttons and, on approve,
 // writes coachSessions/{uid}, which the security rules require before any coach access.
 // Emails go through Resend (resend.com); its API key is the RESEND_API_KEY secret.
-// Off on this branch (js/config.js COACH_LOGIN_APPROVAL); the login-approval branch turns it on.
-const LOGIN_APPROVAL = false;
+// On for this branch (js/config.js COACH_LOGIN_APPROVAL).
+const LOGIN_APPROVAL = true;
 const RESEND_API_KEY = defineSecret('RESEND_API_KEY');
 const FROM = 'EmptyHands <onboarding@resend.dev>';
 const LINK_MINUTES = 15;
