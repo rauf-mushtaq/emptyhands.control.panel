@@ -94,6 +94,7 @@
 
   <!-- EmptyHands chats: one private chat per student -->
   <section class="view" id="view-menu" hidden>
+    <button class="btn btn--ghost btn--sm notify-quick" type="button" data-notify-on hidden>Turn on notifications</button>
     <div class="channels menu-switch" role="tablist" aria-label="EmptyHands chats">
       <button type="button" role="tab" data-cm="private" aria-selected="true">Private messages<span class="dot" hidden></span></button>
       <button type="button" role="tab" data-cm="group" aria-selected="false">Group chat</button>
@@ -280,6 +281,12 @@
         <h2>Head Sensei</h2>
         <p class="muted fine">Set in <code>js/config.js</code> (in both repositories) and <code>firebase/firestore.rules</code>. They can always sign in here.</p>
         <ul class="plain" id="owners"></ul>
+      </div>
+      <div class="card stack" id="notify-card">
+        <h2>Notifications on this device</h2>
+        <p class="muted fine">Get a notification when a student messages Sensei, someone asks to join, or a PayPal payment comes in.</p>
+        <p class="fine" id="notify-status"></p>
+        <button class="btn btn--seal btn--sm" type="button" data-notify-on hidden>Turn on notifications</button>
       </div>
       <form class="card stack" id="form-coaches">
         <h2>Sensei</h2>

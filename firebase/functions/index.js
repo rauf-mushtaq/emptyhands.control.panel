@@ -1,5 +1,6 @@
-// Pushes to students' phones: Sensei's notices and homework (to everyone they're for),
-// Sensei's private messages (to that student) and Sensei's group chat posts (to everyone). Deploy with `firebase deploy --only functions`
+// Push notifications to students (notices, homework, Sensei's messages, group chat posts, class
+// and fee reminders) and to Sensei (students' messages, join requests, PayPal payments), on the
+// phone apps and, via web push, the website / home-screen apps. Deploy with `firebase deploy --only functions`
 // (see README.md). Needs the Firebase Blaze plan.
 const { onDocumentCreated } = require('firebase-functions/v2/firestore');
 const { onRequest } = require('firebase-functions/v2/https');
@@ -24,89 +25,159 @@ function isFor(audience, p) {
 }
 
 const GONE = ['messaging/registration-token-not-registered', 'messaging/invalid-registration-token', 'messaging/invalid-argument'];
+const OWNER_EMAIL = 'info@emptyhands.co.uk'; // keep in line with OWNERS in firestore.rules
+const REGION = 'europe-west2';
+const STUDENT_URL = 'https://rauf-mushtaq.github.io/emptyhands.student/';
+const COACH_URL = 'https://rauf-mushtaq.github.io/emptyhands.control.panel/';
+// How each notification is shown: Android/iPhone apps, and web push for the website / home-screen apps.
+const deliver = link => ({
+  android: { priority: 'high', notification: { color: '#A8342A', icon: 'ic_stat_notify' } },
+  apns: { payload: { aps: { sound: 'default' } } },
+  webpush: { headers: { Urgency: 'high' }, notification: { icon: STUDENT_URL + 'home-icon-192.png', badge: STUDENT_URL + 'home-icon-192.png' }, fcmOptions: { link } },
+});
+const clip = t => (t.length > 180 ? t.slice(0, 177) + '…' : t);
+
+// Sends one notification to [token, docRef] pairs and forgets tokens of uninstalled apps.
+async function send(targets, notification, data, link) {
+  let sent = 0;
+  for (let i = 0; i < targets.length; i += 500) {
+    const batch = targets.slice(i, i + 500);
+    const res = await getMessaging().sendEachForMulticast({
+      tokens: batch.map(([t]) => t), notification: { ...notification, body: clip(notification.body) }, data: { ...data, link }, ...deliver(link),
+    });
+    sent += res.successCount;
+    await Promise.all(res.responses.map((r, j) => (!r.success && GONE.includes(r.error && r.error.code)
+      ? batch[j][1].update({ pushTokens: FieldValue.arrayRemove(batch[j][0]) })
+      : null)));
+  }
+  return sent;
+}
 
 // The region must match the Firestore database location chosen in README.md.
+const studentTargets = (snap, isTarget) => {
+  const targets = [];
+  snap.forEach(doc => { if (isTarget(doc.id, doc.data())) (doc.data().pushTokens || []).forEach(t => targets.push([t, doc.ref])); });
+  return targets;
+};
+async function pushToStudents(isTarget, notification, data, view = 'home') {
+  const students = await getFirestore().collection('users').where('role', '==', 'student').get();
+  return send(studentTargets(students, isTarget), notification, data, STUDENT_URL + '#' + view);
+}
+
+// Sensei sent a notice.
 exports.pushNotice = onDocumentCreated({ document: 'notifications/{id}', region: 'europe-west2' }, async event => {
-  const notice = event.data.data();
-  const db = getFirestore();
-  const students = await db.collection('users').where('role', '==', 'student').get();
-
-  const targets = []; // [token, userRef]
-  students.forEach(doc => {
-    const p = doc.data();
-    if (isFor(notice.audience, p)) (p.pushTokens || []).forEach(t => targets.push([t, doc.ref]));
-  });
-  if (!targets.length) return;
-
-  const body = notice.body.length > 180 ? notice.body.slice(0, 177) + '…' : notice.body;
-  for (let i = 0; i < targets.length; i += 500) {
-    const batch = targets.slice(i, i + 500);
-    const res = await getMessaging().sendEachForMulticast({
-      tokens: batch.map(([t]) => t),
-      notification: { title: notice.title, body },
-      data: { noticeId: event.params.id },
-      android: { priority: 'high', notification: { color: '#A8342A', icon: 'ic_stat_notify' } },
-      apns: { payload: { aps: { sound: 'default' } } },
-    });
-    // Forget tokens for uninstalled apps.
-    await Promise.all(res.responses.map((r, j) => (!r.success && GONE.includes(r.error && r.error.code)
-      ? batch[j][1].update({ pushTokens: FieldValue.arrayRemove(batch[j][0]) })
-      : null)));
-    console.log(`notice ${event.params.id}: sent ${res.successCount}, failed ${res.failureCount}`);
-  }
+  const n = event.data.data();
+  await pushToStudents((id, p) => isFor(n.audience, p), { title: n.title, body: n.body }, { noticeId: event.params.id }, 'menu');
 });
 
-// A coach replied in a student's EmptyHands menu chat: push it to that student's phones.
+// Sensei messaged a student privately (also the automatic fee reminders).
 exports.pushMessage = onDocumentCreated({ document: 'chats/{uid}/messages/{id}', region: 'europe-west2' }, async event => {
   const m = event.data.data();
+  if (m.from === 'student') return pushToCoaches({ title: 'Message from ' + (m.author || 'a student'), body: m.text }, { chat: event.params.uid }, 'menu');
   if (m.from !== 'coach') return;
-  const user = await getFirestore().doc('users/' + event.params.uid).get();
-  const tokens = (user.exists && user.data().role === 'student' && user.data().pushTokens) || [];
-  if (!tokens.length) return;
-  const res = await getMessaging().sendEachForMulticast({
-    tokens,
-    notification: { title: 'Message from ' + (m.author || 'your coach'), body: m.text.length > 180 ? m.text.slice(0, 177) + '…' : m.text },
-    data: { chat: event.params.uid },
-    android: { priority: 'high', notification: { color: '#A8342A', icon: 'ic_stat_notify' } },
-    apns: { payload: { aps: { sound: 'default' } } },
-  });
-  await Promise.all(res.responses.map((r, j) => (!r.success && GONE.includes(r.error && r.error.code)
-    ? user.ref.update({ pushTokens: FieldValue.arrayRemove(tokens[j]) })
-    : null)));
+  const title = m.kind === 'fees' ? 'Fees reminder' : (m.author || 'Sensei') + ' sent you a message';
+  await pushToStudents(id => id === event.params.uid, { title, body: m.text }, { chat: event.params.uid }, m.kind === 'fees' ? 'pay' : 'menu');
 });
-
-// Send one notification to every accepted student matching `isTarget(id, profile)`.
-async function pushToStudents(isTarget, notification, data) {
-  const students = await getFirestore().collection('users').where('role', '==', 'student').get();
-  const targets = [];
-  students.forEach(doc => { if (isTarget(doc.id, doc.data())) (doc.data().pushTokens || []).forEach(t => targets.push([t, doc.ref])); });
-  for (let i = 0; i < targets.length; i += 500) {
-    const batch = targets.slice(i, i + 500);
-    const res = await getMessaging().sendEachForMulticast({
-      tokens: batch.map(([t]) => t),
-      notification: { ...notification, body: notification.body.length > 180 ? notification.body.slice(0, 177) + '…' : notification.body },
-      data,
-      android: { priority: 'high', notification: { color: '#A8342A', icon: 'ic_stat_notify' } },
-      apns: { payload: { aps: { sound: 'default' } } },
-    });
-    await Promise.all(res.responses.map((r, j) => (!r.success && GONE.includes(r.error && r.error.code)
-      ? batch[j][1].update({ pushTokens: FieldValue.arrayRemove(batch[j][0]) })
-      : null)));
-  }
-}
 
 // Sensei set homework.
 exports.pushHomework = onDocumentCreated({ document: 'homework/{id}', region: 'europe-west2' }, async event => {
   const h = event.data.data();
   await pushToStudents((id, p) => (h.student ? h.student === id : isFor(h.audience, p)),
-    { title: 'New homework from ' + (h.from || 'Sensei'), body: h.title }, { homework: event.params.id });
+    { title: 'New homework from ' + (h.from || 'Sensei'), body: h.title }, { homework: event.params.id }, 'homework');
 });
 
 // Sensei posted in the group chat (students' own posts aren't pushed, to keep it quiet).
 exports.pushGroup = onDocumentCreated({ document: 'channels/group/messages/{id}', region: 'europe-west2' }, async event => {
   const m = event.data.data();
   if (m.from !== 'coach') return;
-  await pushToStudents(() => true, { title: (m.author || 'Sensei') + ' in the group chat', body: m.text }, { channel: 'group' });
+  await pushToStudents(() => true, { title: (m.author || 'Sensei') + ' in the group chat', body: m.text }, { channel: 'group' }, 'menu');
+});
+
+// ---- Notifications for Sensei (coachDevices/{uid} holds each Sensei's devices) ----
+async function pushToCoaches(notification, data, view) {
+  const db = getFirestore();
+  const [devices, list] = await Promise.all([db.collection('coachDevices').get(), db.doc('settings/coaches').get()]);
+  const coaches = new Set([OWNER_EMAIL, ...((list.exists && list.data().emails) || [])].map(e => String(e).toLowerCase()));
+  const targets = [];
+  devices.forEach(doc => { if (coaches.has(String(doc.data().email || '').toLowerCase())) (doc.data().pushTokens || []).forEach(t => targets.push([t, doc.ref])); });
+  return send(targets, notification, data, COACH_URL + '#' + view);
+}
+
+// Someone asked to join.
+exports.pushJoinRequest = onDocumentCreated({ document: 'users/{uid}', region: 'europe-west2' }, async event => {
+  const u = event.data.data();
+  if (u.role !== 'pending') return;
+  await pushToCoaches({ title: 'New join request', body: `${u.name || 'Someone'} would like to join EmptyHands.` }, { request: event.params.uid }, 'requests');
+});
+
+// A PayPal payment came in.
+exports.pushPayment = onDocumentCreated({ document: 'payments/{id}', region: 'europe-west2' }, async event => {
+  const p = event.data.data();
+  if (p.method !== 'paypal') return;
+  await pushToCoaches({ title: 'Payment received', body: `${p.name || 'A student'} paid £${Number(p.amount || 0).toFixed(2)} by PayPal (${p.feeName || 'fees'}).` }, { payment: event.params.id }, 'payments');
+});
+
+// ---- Class reminders: 2 hours and 5 minutes before each class ----
+// Thursday classes at Ilford, on the dates the published calendar marks as training.
+const CLASSES = [
+  { key: 'taichi', name: 'Tai Chi', start: '18:00', time: '6pm' },
+  { key: 'karate', name: 'Karate', start: '19:00', time: '7pm' },
+  { key: 'yoga', name: 'Yoga', start: '20:00', time: '8pm' },
+];
+const londonNow = () => {
+  const parts = Object.fromEntries(new Intl.DateTimeFormat('en-GB', { timeZone: 'Europe/London', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hourCycle: 'h23', weekday: 'short' })
+    .formatToParts(new Date()).map(x => [x.type, x.value]));
+  return { date: `${parts.year}-${parts.month}-${parts.day}`, minutes: +parts.hour * 60 + +parts.minute, weekday: parts.weekday };
+};
+// What the calendar says about today: 'training', 'closed', 'blackbelt', 'grading' or ''.
+async function todayType(db, now) {
+  const year = now.date.slice(0, 4);
+  const cal = await db.doc('calendars/' + year).get();
+  // Not published from the Sensei panel yet: the built-in 2026 calendar (as in the apps), else every Thursday.
+  const days = cal.exists ? cal.data().days || {} : year === '2026' ? require('./calendar-2026.json').days : null;
+  if (!days) return now.weekday === 'Thu' ? 'training' : '';
+  return (days[now.date] && days[now.date].type) || '';
+}
+// Only once per class and reminder, even if the schedule runs twice.
+const once = (db, id) => db.doc('sentReminders/' + id).create({ at: Date.now() }).then(() => true, () => false);
+const wantsReminders = p => p.classReminders !== false;
+const atIlford = p => (p.dojo || 'ilford') !== 'epping';
+
+exports.classReminders = onSchedule({ schedule: '*/5 * * * *', timeZone: 'Europe/London', region: REGION }, async () => {
+  const db = getFirestore();
+  const now = londonNow();
+  const type = await todayType(db, now);
+  // On black belt and grading days, a morning reminder.
+  if ((type === 'blackbelt' || type === 'grading') && now.minutes >= 9 * 60 && now.minutes < 9 * 60 + 5 && await once(db, `${now.date}_${type}`)) {
+    if (type === 'blackbelt') await pushToStudents((id, p) => p.grade === 'dan' && wantsReminders(p), { title: 'Black belt class today', body: 'There’s a black belt class at the Epping dojo today. See the calendar for details.' }, { reminder: type }, 'calendar');
+    else await pushToStudents((id, p) => (p.disciplines || []).includes('karate') && wantsReminders(p), { title: 'Grading today', body: 'It’s grading day today. Good luck! See the calendar for details.' }, { reminder: type }, 'calendar');
+    return;
+  }
+  if (type !== 'training') return;
+  for (const c of CLASSES) {
+    const [h, m] = c.start.split(':').map(Number);
+    const until = h * 60 + m - now.minutes;
+    const kind = until > 115 && until <= 120 ? '2h' : until > 0 && until <= 5 ? '5m' : null;
+    if (!kind || !(await once(db, `${now.date}_${c.key}_${kind}`))) continue;
+    const month = now.date.slice(0, 7);
+    let unpaid = new Set();
+    if (kind === '2h') {
+      // Remind students who haven't paid this month to bring or pay their fee.
+      const [students, payments] = await Promise.all([db.collection('users').where('role', '==', 'student').get(), db.collection('payments').where('month', '==', month).get()]);
+      // Paid = this month's monthly fee, or anything paid today (e.g. for today's lesson).
+      const dayStart = Date.now() - now.minutes * 60e3;
+      const paid = new Set(payments.docs.filter(d => d.data().kind === 'monthly' || (d.data().at || 0) >= dayStart).map(d => d.data().uid));
+      students.forEach(d => { if (!d.data().feesExempt && !paid.has(d.id)) unpaid.add(d.id); });
+    }
+    const isTarget = (id, p) => (p.disciplines || []).includes(c.key) && atIlford(p) && wantsReminders(p);
+    const students = await db.collection('users').where('role', '==', 'student').get();
+    const plain = studentTargets(students, (id, p) => isTarget(id, p) && !unpaid.has(id));
+    const owing = studentTargets(students, (id, p) => isTarget(id, p) && unpaid.has(id));
+    const title = kind === '2h' ? `${c.name} starts in 2 hours` : `${c.name} starts in 5 minutes`;
+    const body = kind === '2h' ? `${c.name} is at ${c.time} tonight at the Ilford dojo. See you there!` : `${c.name} starts at ${c.time}. Time to get ready!`;
+    await send(plain, { title, body }, { reminder: c.key }, STUDENT_URL + '#calendar');
+    if (owing.length) await send(owing, { title, body: body + ' Your fees for this month aren’t paid yet: pay per lesson or monthly in the app, or at the dojo.' }, { reminder: c.key }, STUDENT_URL + '#pay');
+  }
 });
 
 // ---- Coach sign-in approval ----
@@ -114,16 +185,16 @@ exports.pushGroup = onDocumentCreated({ document: 'channels/group/messages/{id}'
 // link; approveLogin shows the sign-in details with Approve / Decline buttons and, on approve,
 // writes coachSessions/{uid}, which the security rules require before any coach access.
 // Emails go through Resend (resend.com); its API key is the RESEND_API_KEY secret.
+// Off on this branch (js/config.js COACH_LOGIN_APPROVAL); the login-approval branch turns it on.
+const LOGIN_APPROVAL = false;
 const RESEND_API_KEY = defineSecret('RESEND_API_KEY');
-const OWNER_EMAIL = 'info@emptyhands.co.uk'; // keep in line with OWNERS in firestore.rules
 const FROM = 'EmptyHands <onboarding@resend.dev>';
-const REGION = 'europe-west2';
 const LINK_MINUTES = 15;
 const approveUrl = () => `https://${REGION}-${process.env.GCLOUD_PROJECT}.cloudfunctions.net/approveLogin`;
 const escHtml = v => String(v ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
 const londonTime = ms => new Date(ms).toLocaleString('en-GB', { timeZone: 'Europe/London', dateStyle: 'medium', timeStyle: 'short' });
 
-exports.loginEmail = onDocumentCreated({ document: 'loginRequests/{id}', region: REGION, secrets: [RESEND_API_KEY] }, async event => {
+if (LOGIN_APPROVAL) exports.loginEmail = onDocumentCreated({ document: 'loginRequests/{id}', region: REGION, secrets: [RESEND_API_KEY] }, async event => {
   const r = event.data.data();
   const token = crypto.randomBytes(24).toString('hex');
   const now = Date.now();
@@ -154,7 +225,7 @@ h1{font-size:1.4rem;margin:0 0 12px}button{font:inherit;font-weight:700;border-r
 <body><main><h1>${escHtml(title)}</h1>${body}</main></body></html>`);
 }
 
-exports.approveLogin = onRequest({ region: REGION, invoker: 'public' }, async (req, res) => {
+if (LOGIN_APPROVAL) exports.approveLogin = onRequest({ region: REGION, invoker: 'public' }, async (req, res) => {
   const id = String((req.body && req.body.id) || req.query.id || '');
   const t = String((req.body && req.body.t) || req.query.t || '');
   if (!/^[A-Za-z0-9]{10,40}$/.test(id) || !/^[a-f0-9]{48}$/.test(t)) return page(res, 400, 'Link not valid', '<p>This approval link is incomplete.</p>');
@@ -241,9 +312,9 @@ exports.monthlyReminders = onSchedule({ schedule: '0 10 7 * *', timeZone: 'Europ
   for (const doc of students.docs) {
     const s = doc.data();
     if (s.feesExempt || paid.has(doc.id) || (s.feeReminded || {})[month]) continue;
-    const text = `Hi ${(s.name || '').split(' ')[0]}, just a reminder that your ${monthName} fees haven’t been paid yet. You can pay in the app under Home → Pay fees, or at the dojo. Thank you!`;
+    const text = `Hi ${(s.name || '').split(' ')[0]}, just a reminder that your ${monthName} fees (monthly or per lesson) haven’t been paid yet. You can pay in the app under Home → Pay fees, or at the dojo. Thank you!`;
     const now = Date.now();
-    await db.collection(`chats/${doc.id}/messages`).add({ text, from: 'coach', author: 'EmptyHands Sensei', uid: 'system', createdAt: FieldValue.serverTimestamp() });
+    await db.collection(`chats/${doc.id}/messages`).add({ text, from: 'coach', kind: 'fees', author: 'EmptyHands Sensei', uid: 'system', createdAt: FieldValue.serverTimestamp() });
     await db.doc('chats/' + doc.id).set({ name: s.name || '', lastAt: now, lastFrom: 'coach', lastText: text.slice(0, 140), coachReadAt: now }, { merge: true });
     await doc.ref.update({ [`feeReminded.${month}`]: now });
   }
