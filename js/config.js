@@ -34,7 +34,7 @@ export const PAYPAL_AUTO_TRACK = false;
 // 6. Web push key, for notifications on the website and home-screen apps (the phone apps don't
 //    need it). Firebase console → Project settings → Cloud Messaging → Web Push certificates →
 //    Generate key pair, then paste the key here. Empty = no notifications on the web yet.
-export const WEB_PUSH_KEY = '';
+export const WEB_PUSH_KEY = 'BNNmHlaNT-uVusNBJo0O6R1cfcSvasssaDqnB6VRjV_ABeO3MtiJKciBlUy54mKAJCwQYuDd10TzL7RQDGJJDgc';
 
 // 7. The recommended YouTube channel shown in the student app's EmptyHands chats.
 //    Paste the channel's own address here (e.g. https://www.youtube.com/@ChannelName).
