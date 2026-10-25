@@ -1,0 +1,45 @@
+# Deploys the Cloud Functions (notifications, reminders, PayPal tracking) and the Firestore
+# security rules to the emptyhands-student-portal Firebase project. Needs the repository secret
+# FIREBASE_SERVICE_ACCOUNT: the service account key (JSON) from Firebase console → Project settings
+# → Service accounts → Generate new private key (see README.md).
+name: Deploy Firebase
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: ['firebase/**', '.github/workflows/firebase.yml']
+
+concurrency: firebase-deploy
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: firebase
+    env:
+      HAS_KEY: ${{ secrets.FIREBASE_SERVICE_ACCOUNT != '' }}
+    steps:
+      - name: Check for the service account key
+        if: env.HAS_KEY != 'true'
+        working-directory: .
+        run: echo "::warning::No FIREBASE_SERVICE_ACCOUNT secret yet, so nothing was deployed."
+      - uses: actions/checkout@v4
+        if: env.HAS_KEY == 'true'
+      - uses: actions/setup-node@v4
+        if: env.HAS_KEY == 'true'
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: firebase/functions/package-lock.json
+      - if: env.HAS_KEY == 'true'
+        run: npm --prefix functions ci
+      - name: Deploy functions and rules
+        if: env.HAS_KEY == 'true'
+        env:
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+        run: |
+          printf '%s' "$FIREBASE_SERVICE_ACCOUNT" > "$RUNNER_TEMP/key.json"
+          export GOOGLE_APPLICATION_CREDENTIALS="$RUNNER_TEMP/key.json"
+          npx -y firebase-tools@14 deploy --only functions,firestore:rules --project emptyhands-student-portal --force --non-interactive
