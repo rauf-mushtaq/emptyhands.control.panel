@@ -42,4 +42,9 @@ jobs:
         run: |
           printf '%s' "$FIREBASE_SERVICE_ACCOUNT" > "$RUNNER_TEMP/key.json"
           export GOOGLE_APPLICATION_CREDENTIALS="$RUNNER_TEMP/key.json"
-          npx -y firebase-tools@14 deploy --only functions,firestore:rules --project emptyhands-student-portal --force --non-interactive
+          # The deploy checks billing through the Cloud Billing API, which firebase-tools doesn't switch on itself.
+          gcloud auth activate-service-account --key-file="$RUNNER_TEMP/key.json" --quiet
+          gcloud services enable cloudbilling.googleapis.com --project emptyhands-student-portal --quiet
+          deploy() { npx -y firebase-tools@14 deploy --only functions,firestore:rules --project emptyhands-student-portal --force --non-interactive; }
+          # A first deploy can fail while Google finishes setting up new services; try again once after a pause.
+          deploy || { echo "Retrying in 90 seconds…"; sleep 90; deploy; }
