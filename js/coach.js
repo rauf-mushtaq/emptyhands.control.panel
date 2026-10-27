@@ -200,9 +200,11 @@ $('#coach-alerts').addEventListener('click', async () => {
 
 // ---- EmptyHands chats: private chat with each student's family ----
 const unreadChat = c => c && c.lastFrom === 'student' && (c.lastAt || 0) > (c.coachReadAt || 0);
+// How many of a student's messages are unread (chats from before the count existed show as 1).
+const unreadCount = c => (unreadChat(c) ? Math.max(c.coachUnread || 0, 1) : 0);
 function drawMenuCount() {
-  const n = state.chats.filter(unreadChat).length;
-  $('#menu-count').textContent = n || '';
+  const n = state.chats.reduce((sum, c) => sum + unreadCount(c), 0);
+  $('#menu-count').textContent = n > 99 ? '99+' : n || '';
   $('[data-cm=private] .dot').hidden = !n;
 }
 
@@ -494,7 +496,7 @@ function drawChatList() {
     .sort((a, b) => ((b.chat && b.chat.lastAt) || 0) - ((a.chat && a.chat.lastAt) || 0) || (a.name || '').localeCompare(b.name || ''));
   $('#chat-list').innerHTML = people.length ? people.map(p => `
     <li><button type="button" class="chat-item${unreadChat(p.chat) ? ' is-unread' : ''}${state.open === p.id ? ' is-open' : ''}" data-chat="${esc(p.id)}">
-      <b>${esc(p.name)}</b>${p.chat ? `<time>${timeAgo(p.chat.lastAt)}</time>` : ''}
+      <b>${esc(p.name)}${unreadChat(p.chat) ? ` <span class="unread-n">${unreadCount(p.chat)}</span>` : ''}</b>${p.chat ? `<time>${timeAgo(p.chat.lastAt)}</time>` : ''}
       <small>${p.chat ? (p.chat.lastFrom === 'coach' ? 'You: ' : '') + esc(p.chat.lastText) : esc(p.guardian ? 'Parent: ' + p.guardian : 'No messages yet')}</small>
     </button></li>`).join('') : '<li class="muted fine">No accepted students yet.</li>';
 }

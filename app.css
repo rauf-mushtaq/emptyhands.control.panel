@@ -359,7 +359,7 @@ ul.plain li:first-child { border-top: 0; }
 .chat-item.is-open { background: var(--paper-2); box-shadow: inset 3px 0 0 var(--seal); }
 .chat-item time { font-size: .75rem; color: var(--ink-3); }
 .chat-item small { grid-column: 1 / -1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.chat-item.is-unread b::after { content: ""; display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--seal); margin-left: 8px; vertical-align: middle; }
+.unread-n { display: inline-block; min-width: 20px; padding: 0 6px; margin-left: 6px; border-radius: 99px; background: var(--seal); color: #fff; font-size: .72rem; line-height: 20px; text-align: center; vertical-align: middle; }
 .chat-item.is-unread small { color: var(--ink); font-weight: 700; }
 .chat-pane { --pane-h: clamp(420px, calc(100dvh - 210px), 760px); height: var(--pane-h); display: flex; flex-direction: column; }
 #chat-open:not([hidden]) { flex: 1; min-height: 0; display: flex; flex-direction: column; }

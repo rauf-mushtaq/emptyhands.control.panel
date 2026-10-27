@@ -88,9 +88,11 @@ async function firebaseBackend() {
     sendMessage: async (uid, studentName, m) => {
       const now = Date.now();
       await F.addDoc(F.collection(db, 'chats', uid, 'messages'), { ...m, createdAt: F.serverTimestamp() });
-      await F.setDoc(ref('chats', uid), { name: studentName, lastAt: now, lastFrom: m.from, lastText: m.text.slice(0, 140), [m.from + 'ReadAt']: now }, { merge: true });
+      // coachUnread counts the student's messages Sensei hasn't read yet (for the panel's badge).
+      await F.setDoc(ref('chats', uid), { name: studentName, lastAt: now, lastFrom: m.from, lastText: m.text.slice(0, 140), [m.from + 'ReadAt']: now,
+        ...(m.from === 'student' ? { coachUnread: F.increment(1) } : {}) }, { merge: true });
     },
-    markChatRead: (uid, who) => F.setDoc(ref('chats', uid), { [who + 'ReadAt']: Date.now() }, { merge: true }),
+    markChatRead: (uid, who) => F.setDoc(ref('chats', uid), { [who + 'ReadAt']: Date.now(), ...(who === 'coach' ? { coachUnread: 0 } : {}) }, { merge: true }),
 
     // Shared channels everyone accepted can read: 'group' (group chat) and 'journal' (training journal).
     watchChannel: (ch, cb) => F.onSnapshot(
@@ -239,9 +241,11 @@ function demoBackend() {
     sendMessage: async (uid, studentName, m) => {
       const now = Date.now();
       save('msgs:' + uid, [...load('msgs:' + uid, []), { ...m, id: 'm' + now.toString(36) + Math.random().toString(36).slice(2, 5), createdAt: now }]);
-      chats.put(uid, { ...(chats.all()[uid] || {}), name: studentName, lastAt: now, lastFrom: m.from, lastText: m.text.slice(0, 140), [m.from + 'ReadAt']: now });
+      const c = chats.all()[uid] || {};
+      chats.put(uid, { ...c, name: studentName, lastAt: now, lastFrom: m.from, lastText: m.text.slice(0, 140), [m.from + 'ReadAt']: now,
+        ...(m.from === 'student' ? { coachUnread: (c.coachUnread || 0) + 1 } : {}) });
     },
-    markChatRead: async (uid, who) => chats.put(uid, { ...(chats.all()[uid] || {}), [who + 'ReadAt']: Date.now() }),
+    markChatRead: async (uid, who) => chats.put(uid, { ...(chats.all()[uid] || {}), [who + 'ReadAt']: Date.now(), ...(who === 'coach' ? { coachUnread: 0 } : {}) }),
 
     watchChannel: (ch, cb) => watch('ch:' + ch, () => load('ch:' + ch, []), cb),
     postChannel: async (ch, m) => { const now = Date.now(); save('ch:' + ch, [...load('ch:' + ch, []), { ...m, id: 'c' + now.toString(36) + Math.random().toString(36).slice(2, 5), createdAt: now }]); },

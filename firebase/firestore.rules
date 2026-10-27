@@ -84,16 +84,18 @@ service cloud.firestore {
     // EmptyHands menu: one private thread per accepted student, shared by all coaches.
     function inThread(uid) { return isCoach() || (signedIn() && request.auth.uid == uid && isStudent()); }
     // The chat summary (for Sensei's list): students may only update their own side of it.
-    function studentChatWrite(uid, keys) {
+    // coachUnread (Sensei's unread count) can only go up by one per message.
+    function studentChatWrite(uid, keys, before) {
       return signedIn() && request.auth.uid == uid && isStudent()
-        && keys.hasOnly(['name', 'lastAt', 'lastFrom', 'lastText', 'studentReadAt'])
-        && request.resource.data.get('lastFrom', 'student') == 'student';
+        && keys.hasOnly(['name', 'lastAt', 'lastFrom', 'lastText', 'studentReadAt', 'coachUnread'])
+        && request.resource.data.get('lastFrom', 'student') == 'student'
+        && (!keys.hasAny(['coachUnread']) || request.resource.data.coachUnread == before + 1);
     }
     match /chats/{uid} {
       allow read: if inThread(uid);
       allow write: if isCoach();
-      allow create: if studentChatWrite(uid, request.resource.data.keys());
-      allow update: if studentChatWrite(uid, request.resource.data.diff(resource.data).affectedKeys());
+      allow create: if studentChatWrite(uid, request.resource.data.keys(), 0);
+      allow update: if studentChatWrite(uid, request.resource.data.diff(resource.data).affectedKeys(), resource.data.get('coachUnread', 0));
       match /messages/{id} {
         allow read: if inThread(uid);
         allow create: if request.resource.data.text is string
