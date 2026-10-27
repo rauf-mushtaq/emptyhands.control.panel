@@ -24,6 +24,81 @@ export const GRADES = {
   brown2: 'Brown 2 stripe belt',
   dan: 'Black belt',
 };
+// The belts on the student licence, in order, as on EmptyHands' paper licence.
+export const LICENCE_BELTS = [
+  { grade: 'none', belt: 'White', rank: '10th Kyu', level: 'Beginner', bg: '#ffffff', fg: '#1c1a16' },
+  { grade: 'red', belt: 'Red', rank: '9th Kyu', level: 'Beginner', bg: '#e31b1b', fg: '#ffffff' },
+  { grade: 'orange', belt: 'Orange', rank: '8th Kyu', level: 'Beginner', bg: '#f39200', fg: '#ffffff' },
+  { grade: 'yellow', belt: 'Yellow', rank: '7th Kyu', level: 'Intermediate', bg: '#ffee00', fg: '#1c1a16' },
+  { grade: 'green', belt: 'Green', rank: '6th Kyu', level: 'Intermediate', bg: '#0a7d1e', fg: '#ffffff' },
+  { grade: 'purple', belt: 'Purple', rank: '5th Kyu', level: 'Intermediate', bg: '#7a1a86', fg: '#ffffff' },
+  { grade: 'purple1', belt: 'Purple/stripe or Blue', rank: '4th Kyu', level: 'Intermediate', bg: '#7a1a86', fg: '#ffffff' },
+  { grade: 'brown', belt: 'Brown', rank: '3rd Kyu', level: 'Advance', bg: '#7a5200', fg: '#ffffff' },
+  { grade: 'brown1', belt: 'Brown with stripe', rank: '2nd Kyu', level: 'Advance', bg: '#7a5200', fg: '#ffffff' },
+  { grade: 'brown2', belt: 'Brown with two stripes', rank: '1st Kyu', level: 'Advance', bg: '#7a5200', fg: '#ffffff' },
+  { grade: 'dan', belt: '1st Degree Black', rank: '1st Dan', level: 'Professional', bg: '#000000', fg: '#ffffff' },
+];
+export const LICENCE_RESULTS = ['', 'Pass', 'Merit', 'Distinction'];
+export const OATH = '“I promise to uphold the true spirit of KaraTe and never to use the skills that I am taught against any person(s), except for the defence of myself, family, or friends in the instance of extreme danger or unprovoked attack, or in the support of law and order. Safety will be always my first priority, both for myself and fellow KaraTe-ka. I will endeavour to learn & follow the guidelines of the Dojo Kun & Niju Kun.”';
+
+// The student licence, laid out like the paper one. `l` is licences/{uid}, `p` the student's
+// profile. With `edit`, every field is an input (Sensei panel); otherwise it's the student's copy.
+export function licenceHTML(l, p, { edit = false, logo = 'assets/img/logo.png' } = {}) {
+  l = l || {};
+  const rec = l.record || {};
+  const field = (name, value, opts = {}) => edit
+    ? `<input name="${name}" value="${esc(value || '')}" maxlength="${opts.max || 160}"${opts.ph ? ` placeholder="${esc(opts.ph)}"` : ''} aria-label="${esc(opts.label || name)}">`
+    : esc(value || '');
+  const row = (label, html) => `<tr><th scope="row">${label}</th><td>${html}</td></tr>`;
+  const details = [
+    row('Student Name', esc(p.name || '')),
+    row('Address', field('address', l.address, { max: 200, label: 'Address' })),
+    row('Email', esc(p.email || '')),
+    row('Phone', esc(p.phone || '')),
+    row('Membership Number', field('membershipNo', l.membershipNo, { max: 40, ph: 'e.g. EH0002014', label: 'Membership number' })),
+    row('Start Date', field('startDate', l.startDate, { max: 40, ph: 'e.g. 2014', label: 'Start date' })),
+    row('Membership Renewal', field('renewal', l.renewal, { max: 40, ph: 'e.g. Aug 2026', label: 'Membership renewal' })),
+    row('Membership Status', edit
+      ? `<select name="status" aria-label="Membership status">${['Active', 'Inactive', 'Suspended'].map(o => `<option${(l.status || 'Active') === o ? ' selected' : ''}>${o}</option>`).join('')}</select>`
+      : esc(l.status || 'Active')),
+  ].join('');
+  const belts = LICENCE_BELTS.map(b => {
+    const r = rec[b.grade] || {};
+    const cell = (k, html) => `<td class="lic-${k}">${html}</td>`;
+    const result = edit
+      ? `<select name="rec.${b.grade}.result" aria-label="${esc(b.belt)} result">${LICENCE_RESULTS.map(o => `<option${(r.result || '') === o ? ' selected' : ''}>${o}</option>`).join('')}</select>`
+      : esc(r.result || '');
+    return `<tr style="--belt:${b.bg};--belt-ink:${b.fg}"${!edit && p.grade === b.grade ? ' class="is-current"' : ''}>
+      <td class="lic-belt">${esc(b.belt)}</td><td class="lic-belt">${esc(b.rank).replace(/(\d)(st|nd|rd|th)/, '$1<sup>$2</sup>')}</td><td class="lic-belt">${esc(b.level)}</td>
+      ${cell('date', field(`rec.${b.grade}.date`, r.date, { max: 20, ph: 'dd/mm/yyyy', label: b.belt + ' grading date' }))}
+      ${cell('result', result)}
+      ${cell('examiners', field(`rec.${b.grade}.examiners`, r.examiners, { max: 80, ph: 'e.g. AM, JP', label: b.belt + ' examiners' }))}</tr>`;
+  }).join('');
+  return `<article class="licence${edit ? ' licence--edit' : ''}">
+    <header class="lic-head"><img src="${logo}" alt="EmptyHands KaraTe School"><span>Develop – Empower – Inspire</span></header>
+    <h2 class="lic-title">Student Licence – <i>Original Copy</i></h2>
+    <table class="lic-details"><tbody>${details}</tbody></table>
+    <h3>Oath</h3><p class="lic-oath">${esc(OATH)}</p>
+    <h3>Record</h3>
+    <div class="lic-table-wrap"><table class="lic-record">
+      <thead><tr><th>Belt</th><th>Rank</th><th>Level</th><th>Grading Date</th><th>Results</th><th>Grading Examiner(s)</th></tr></thead>
+      <tbody>${belts}</tbody></table></div>
+    <p class="lic-auth">Records authenticated by ${field('authenticatedBy', l.authenticatedBy || (edit ? '' : 'Azeem Mushtaq (Sensei), Head Teacher, EmptyHands KaraTe School'), { max: 120, ph: 'e.g. Azeem Mushtaq (Sensei), Head Teacher', label: 'Authenticated by' })}</p>
+    <footer class="lic-foot">Copyright © EmptyHands ${new Date().getFullYear()}. All rights reserved.</footer>
+  </article>`;
+}
+
+// Reads the Sensei panel's licence form back into a licences/{uid} document.
+export function licenceFromForm(form) {
+  const d = { record: {} };
+  for (const el of form.querySelectorAll('[name]')) {
+    const v = el.value.trim();
+    const m = el.name.match(/^rec\.(\w+)\.(date|result|examiners)$/);
+    if (m) { if (v) (d.record[m[1]] ||= {})[m[2]] = v; } else d[el.name] = v;
+  }
+  return d;
+}
+
 export const AUDIENCES = {
   all: 'Everyone',
   karate: 'Karate students',

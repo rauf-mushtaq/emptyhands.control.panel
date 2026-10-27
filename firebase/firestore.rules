@@ -158,6 +158,14 @@ service cloud.firestore {
       allow write: if isCoach();
     }
 
+    // Student licences: Sensei keep each student's details and belt record; the student can read it.
+    match /licences/{uid} {
+      allow read: if isCoach() || (signedIn() && request.auth.uid == uid);
+      allow write: if isCoach()
+        && request.resource.data.keys().hasOnly(['address', 'membershipNo', 'startDate', 'renewal', 'status', 'authenticatedBy', 'record', 'updatedAt'])
+        && request.resource.data.get('record', {}) is map && request.resource.data.get('record', {}).size() <= 11;
+    }
+
     // Each Sensei's devices for push notifications (read only by the Cloud Functions otherwise).
     match /coachDevices/{uid} {
       allow read, delete: if isCoach() && request.auth.uid == uid;

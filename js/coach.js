@@ -4,7 +4,7 @@ import { webPushReady, webPushToken } from './webpush.js';
 import {
   $, $$, esc, GRADES, DISCIPLINES, DOJOS, AUDIENCES, renderYear, legendHTML, loadCalendar, calendarYears,
   noticeIsFor, homeworkIsFor, DEFAULT_FEES, FEE_GROUPS, FEE_LEVELS, paypalLink, longDate,
-  monthKey, monthName, isMonthly, monthlyFeeFor, money, PAY_METHODS, shortDate, timeAgo, keyOf, download, toast, busy, messageHTML, wireEdits, editing,
+  monthKey, monthName, isMonthly, monthlyFeeFor, money, PAY_METHODS, shortDate, timeAgo, keyOf, download, toast, busy, messageHTML, wireEdits, editing, licenceHTML, licenceFromForm,
 } from './common.js';
 
 let api;
@@ -26,6 +26,7 @@ function show(id) {
   if (id === 'menu') { drawChatList(); drawChannel(); if (state.open) markOpenRead(); }
   if (id === 'homework') drawHomeworkAdmin();
   if (id === 'payments') loadPayments();
+  if (id === 'licences') drawLicences();
 }
 $('#coach-tabs').addEventListener('click', e => {
   const b = e.target.closest('[data-go]');
@@ -134,7 +135,7 @@ async function onAuth(user) {
   await loadStudents();
   await loadYear(ed.year);
   const start = location.hash.slice(1);
-  const chosen = ['requests', 'menu', 'notices', 'homework', 'payments', 'students', 'calendar', 'coaches'].includes(start);
+  const chosen = ['requests', 'menu', 'notices', 'homework', 'payments', 'students', 'licences', 'calendar', 'coaches'].includes(start);
   if (start === 'payments') loadPayments();
   show(chosen ? start : (state.requests || []).length ? 'requests' : 'menu');
   // The request list may load after this; if there are requests waiting, open on them.
@@ -650,7 +651,7 @@ function drawStudents() {
     <td data-th="Joined">${s.createdAt ? new Date(s.createdAt).toLocaleDateString('en-GB') : '—'}</td>
     <td>${s.role !== 'student'
       ? `<button class="linkish" data-restore="${esc(s.id)}">${s.role === 'declined' ? 'Accept' : 'Restore'}</button>`
-      : `<button class="linkish danger" data-remove="${esc(s.id)}">Remove</button>`}</td>
+      : `<button class="linkish" data-licence="${esc(s.id)}">Licence</button> · <button class="linkish danger" data-remove="${esc(s.id)}">Remove</button>`}</td>
   </tr>`).join('') || (state.students.length ? '<tr><td colspan="7" class="muted">No students match.</td></tr>' : '');
 }
 $('#student-search').addEventListener('input', drawStudents);
@@ -848,3 +849,48 @@ $('#coach-list').addEventListener('click', async e => {
   }
   api.onAuth(onAuth);
 })();
+
+// ---- Licences: each student's details and belt record, like the paper licence ----
+const lic = { uid: null };
+const licStudents = () => state.students.filter(s => s.role === 'student');
+async function drawLicences() {
+  const list = licStudents();
+  $('#lic-empty').hidden = !!list.length;
+  $('#form-licence').hidden = !list.length;
+  $('#lic-print').hidden = !list.length;
+  $('#lic-student').hidden = !list.length;
+  if (!list.length) return;
+  if (!list.some(s => s.id === lic.uid)) lic.uid = list[0].id;
+  $('#lic-student').innerHTML = list.map(s => `<option value="${esc(s.id)}"${s.id === lic.uid ? ' selected' : ''}>${esc(s.name || s.email)}</option>`).join('');
+  await openLicence(lic.uid);
+}
+async function openLicence(uid) {
+  lic.uid = uid;
+  const s = state.students.find(x => x.id === uid);
+  $('#lic-sheet').innerHTML = '<p class="muted">Loading…</p>';
+  let data = null;
+  try { data = await api.getLicence(uid); } catch (err) { toast(errorText(err), 'bad'); }
+  if (lic.uid !== uid) return; // switched student while loading
+  $('#lic-sheet').innerHTML = licenceHTML(data, s, { edit: true, logo: 'assets/img/logo-light.png' });
+}
+$('#lic-student').addEventListener('change', e => openLicence(e.target.value));
+$('#lic-print').addEventListener('click', () => print());
+$('#form-licence').addEventListener('submit', async e => {
+  e.preventDefault();
+  const form = e.target;
+  const s = state.students.find(x => x.id === lic.uid);
+  showError(form);
+  await busy(form.querySelector('[type=submit]'), async () => {
+    try {
+      await api.saveLicence(lic.uid, licenceFromForm(form));
+      toast(`${s ? s.name : 'Student'}’s licence saved`);
+    } catch (err) { showError(form, errorText(err)); }
+  });
+});
+$('#student-rows').addEventListener('click', e => {
+  const b = e.target.closest('[data-licence]');
+  if (!b) return;
+  lic.uid = b.dataset.licence;
+  show('licences');
+  history.replaceState(null, '', '#licences');
+});

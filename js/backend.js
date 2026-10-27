@@ -141,6 +141,11 @@ async function firebaseBackend() {
 
     getCoaches: async () => { const s = await F.getDoc(ref('settings', 'coaches')); return s.exists() ? s.data().emails || [] : []; },
 
+    // Student licences (licences/{uid}): Sensei fill them in; each student can read their own.
+    getLicence: async uid => { const s = await F.getDoc(ref('licences', uid)); return s.exists() ? s.data() : null; },
+    saveLicence: (uid, data) => F.setDoc(ref('licences', uid), { ...data, updatedAt: Date.now() }),
+    watchLicence: (uid, cb) => F.onSnapshot(ref('licences', uid), s => cb(s.exists() ? s.data() : null), () => cb(null)),
+
     saveCoaches: emails => F.setDoc(ref('settings', 'coaches'), { emails }),
     getPayments: async () => { const s = await F.getDoc(ref('settings', 'payments')); return s.exists() ? s.data() : null; },
     // Payment records: written by Sensei (cash etc.) or the paypalIpn function; students read their own.
@@ -274,6 +279,9 @@ function demoBackend() {
     listCalendarYears: async () => Object.keys(cals.all()).map(Number),
 
     getCoaches: async () => load('coaches', []),
+    getLicence: async uid => load('lic:' + uid, null),
+    saveLicence: async (uid, data) => save('lic:' + uid, { ...data, updatedAt: Date.now() }),
+    watchLicence: (uid, cb) => watch('lic:' + uid, () => load('lic:' + uid, null), cb),
     saveCoaches: async emails => store('coaches', emails),
     getPayments: async () => load('payments', null),
     watchMyPayments: (uid, cb) => watch('pmts', () => load('pmts', []).filter(p => p.uid === uid).sort((a, b) => b.at - a.at), cb),

@@ -539,3 +539,41 @@ body.in-chat .chat-compose { flex: none; position: static; }
 .notify-card h2 { margin: 0; font-size: 1.1rem; }
 .notify-card .btn { justify-self: start; }
 .notify-quick { float: right; margin-left: 8px; }
+
+/* Student licence, laid out like EmptyHands' paper licence */
+.licence { background: #fff; color: #111; border: 1px solid var(--line); border-radius: 12px; padding: clamp(16px, 4vw, 40px); max-width: 820px; margin: 0 auto 16px; font-family: Georgia, "Times New Roman", serif; box-shadow: 0 6px 24px rgba(0, 0, 0, .06); }
+.lic-head { display: flex; justify-content: space-between; align-items: flex-end; gap: 12px; border-bottom: 2px solid #111; padding-bottom: 8px; }
+.lic-head img { height: 64px; width: auto; border-radius: 8px; }
+.lic-head span { font-weight: 700; font-size: .95rem; }
+.lic-title { text-align: center; font-size: 1.35rem; margin: 18px 0 14px; font-family: inherit; }
+.lic-title i { font-weight: 400; }
+.licence h3 { font-size: 1rem; text-transform: uppercase; letter-spacing: .04em; margin: 18px 0 6px; font-family: inherit; }
+.lic-details { width: 100%; border-collapse: collapse; font-size: .98rem; }
+.lic-details th, .lic-details td { border: 1px solid #111; padding: 4px 8px; text-align: left; vertical-align: top; }
+.lic-details th { width: 34%; background: #f1f1f1; }
+.lic-oath { font-style: italic; margin: 0; line-height: 1.45; }
+.lic-table-wrap { overflow-x: auto; }
+.lic-record { width: 100%; border-collapse: collapse; font-family: Arial, Helvetica, sans-serif; font-size: .86rem; min-width: 560px; }
+.lic-record th, .lic-record td { border: 1px solid #111; padding: 3px 6px; text-align: center; }
+.lic-record thead th { background: #c9c9c9; }
+.lic-record .lic-belt { background: var(--belt); color: var(--belt-ink); }
+.lic-record tr.is-current td { font-weight: 700; }
+.lic-auth { margin: 18px 0 8px; }
+.lic-foot { border-top: 1px solid #999; margin-top: 24px; padding-top: 6px; color: #777; font-size: .8rem; }
+.licence--edit input, .licence--edit select { width: 100%; min-height: 32px; padding: 2px 6px; border: 1px dashed #b9b2a4; border-radius: 4px; background: #fffdf6; font: inherit; color: inherit; }
+.licence--edit .lic-record input, .licence--edit .lic-record select { min-width: 92px; font-size: .86rem; }
+.licence--edit .lic-auth input { display: inline-block; width: min(100%, 420px); margin-top: 4px; }
+.lic-cta .pay-cta-icon { background: var(--ink); font-family: var(--serif); }
+@media print {
+  @page { size: A4; margin: 12mm; }
+  body { background: #fff !important; padding: 0 !important; height: auto !important; overflow: visible !important; }
+  .app-top, .tabbar, .no-print, #toasts, .demo-banner, .install-btn { display: none !important; }
+  .app-main { padding: 0 !important; max-width: none !important; }
+  .view:not([hidden]) { animation: none !important; }
+  .licence { border: 0; box-shadow: none; padding: 0; max-width: none; }
+  .lic-record .lic-belt, .lic-details th, .lic-record thead th { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  #view-licences .view-head, #view-licence .view-head { display: none !important; }
+  .licence--edit input, .licence--edit select { border: 0 !important; background: none !important; box-shadow: none !important; padding: 0 !important; min-height: 0 !important; height: auto !important; appearance: none; -webkit-appearance: none; color: #111 !important; }
+  .licence--edit input::placeholder { color: transparent; }
+  .licence--edit .lic-auth input { width: 100% !important; display: block; }
+}

@@ -28,6 +28,7 @@
     <button data-go="homework">Homework</button>
     <button data-go="payments">Payments</button>
     <button data-go="students">Students <span class="count" id="student-count"></span></button>
+    <button data-go="licences">Licences</button>
     <button data-go="calendar">Calendar</button>
     <button data-go="coaches">Sensei</button>
   </nav>
@@ -219,6 +220,25 @@
       </table>
     </div>
     <p class="muted" id="students-empty" hidden>No students yet. Share the student app link: <a id="student-link" href="https://rauf-mushtaq.github.io/emptyhands.student/"></a></p>
+  </section>
+
+  <!-- Licences: each student's details and belt record, like the paper licence -->
+  <section class="view" id="view-licences" hidden>
+    <div class="view-head">
+      <div><p class="eyebrow">Belt records</p><h1>Licences</h1></div>
+      <div class="view-actions">
+        <label class="sr-only" for="lic-student">Student</label>
+        <select id="lic-student"></select>
+        <button class="btn btn--ghost btn--sm" id="lic-print" type="button">Print / save PDF</button>
+      </div>
+    </div>
+    <p class="muted" id="lic-empty" hidden>No accepted students yet. Accept a join request first.</p>
+    <form id="form-licence" novalidate hidden>
+      <p class="muted fine no-print">Fill in the student’s details and the date, result and examiners for each belt they’ve achieved, then save. The student sees it under <i>My licence</i> in their app. Name, email and phone come from their profile.</p>
+      <div id="lic-sheet"></div>
+      <p class="form-error" hidden></p>
+      <div class="row-actions no-print"><button class="btn btn--seal" type="submit">Save licence</button></div>
+    </form>
   </section>
 
   <!-- Calendar editor -->
