@@ -4,7 +4,7 @@ import { webPushReady, webPushToken } from './webpush.js';
 import {
   $, $$, esc, GRADES, DISCIPLINES, DOJOS, AUDIENCES, renderYear, legendHTML, loadCalendar, calendarYears,
   noticeIsFor, homeworkIsFor, DEFAULT_FEES, FEE_GROUPS, FEE_LEVELS, paypalLink, longDate,
-  monthKey, monthName, isMonthly, monthlyFeeFor, money, PAY_METHODS, shortDate, timeAgo, keyOf, download, toast, busy, messageHTML, wireEdits, editing, licenceHTML, licenceFromForm, MEDALS, MEDAL_REASONS, medalHTML,
+  TYPES, todayKey, whenText, monthKey, monthName, isMonthly, monthlyFeeFor, money, PAY_METHODS, shortDate, timeAgo, keyOf, download, toast, busy, messageHTML, wireEdits, editing, licenceHTML, licenceFromForm, MEDALS, MEDAL_REASONS, medalHTML,
 } from './common.js';
 
 let api;
@@ -21,17 +21,27 @@ function show(id) {
   const inside = !['auth', 'denied'].includes(id);
   $('#coach-tabs').hidden = !inside;
   $('#signout').hidden = !inside;
-  $$('#coach-tabs button').forEach(b => b.toggleAttribute('aria-current', b.dataset.go === id));
+  $('#dock').hidden = !inside;
+  $('#menu-open').hidden = !inside;
+  document.body.classList.toggle('has-tabbar', inside);
+  document.body.classList.toggle('on-home', id === 'home');
+  $$('#coach-tabs button, #dock .tabbar button').forEach(b => b.toggleAttribute('aria-current', b.dataset.go === id));
+  const tab = $(`#coach-tabs [data-go="${id}"]`);
+  $('#top-title').textContent = inside && id !== 'home' && tab ? tab.firstChild.textContent.trim() : 'Sensei panel';
   if (inside) state.view = id;
+  if (id === 'home') drawHome();
   if (id === 'menu') { drawChatList(); drawChannel(); if (state.open) markOpenRead(); }
   if (id === 'homework') drawHomeworkAdmin();
   if (id === 'payments') loadPayments();
   if (id === 'licences') drawLicences();
   if (id === 'medals') drawAwardStudents();
 }
-$('#coach-tabs').addEventListener('click', e => {
+// Any [data-go] button (side menu, bottom bar, Home cards) opens that page.
+document.addEventListener('click', e => {
   const b = e.target.closest('[data-go]');
-  if (!b) return;
+  if (!b || !state.user || $('#coach-tabs').hidden) return;
+  if ($('#side-menu').open) $('#side-menu').close();
+  scrollTo(0, 0);
   state.autoStart = false;
   show(b.dataset.go);
   history.replaceState(null, '', '#' + b.dataset.go);
@@ -128,7 +138,9 @@ async function onAuth(user) {
   $('#reply-from').value = savedName();
   $('#form-homework').from.value = savedName();
   state.stops.push(api.watchChannel('group', list => { state.group = list; drawChannel(); }));
-  state.stops.push(api.watchAwards(list => { state.awards = list; drawAwards(); }));
+  state.stops.push(api.watchAwards(list => { state.awards = list; drawAwards(); drawHome(); }));
+  state.stops.push(api.watchPaymentsForMonth(monthKey(), list => { state.monthPay = list; drawHome(); }));
+  $('#side-email').textContent = user.email;
   $('#form-award').from.value = savedName();
   state.stops.push(api.watchChannel('journal', list => { state.journal = list; drawChannel(); }));
   state.stops.push(api.watchHomework(list => { state.homework = list; drawHomeworkAdmin(); }));
@@ -138,11 +150,10 @@ async function onAuth(user) {
   await loadStudents();
   await loadYear(ed.year);
   const start = location.hash.slice(1);
-  const chosen = ['requests', 'menu', 'notices', 'homework', 'payments', 'students', 'licences', 'medals', 'calendar', 'coaches'].includes(start);
+  const chosen = ['home', 'requests', 'menu', 'notices', 'homework', 'payments', 'students', 'licences', 'medals', 'calendar', 'coaches'].includes(start);
   if (start === 'payments') loadPayments();
-  show(chosen ? start : (state.requests || []).length ? 'requests' : 'menu');
-  // The request list may load after this; if there are requests waiting, open on them.
-  state.autoStart = !chosen;
+  show(chosen ? start : 'home');
+  state.autoStart = false;
   if (start === 'coaches') drawCoaches();
 }
 
@@ -160,6 +171,8 @@ function onRequests(list) {
     });
   }
   $('#request-count').textContent = list.length || '';
+  $('#dock-requests').hidden = !list.length; $('#dock-requests').textContent = list.length;
+  drawHome();
   document.title = (list.length ? `(${list.length}) ` : '') + 'EmptyHands · Sensei panel';
   drawRequests();
 }
@@ -209,6 +222,8 @@ const unreadCount = c => (unreadChat(c) ? Math.max(c.coachUnread || 0, 1) : 0);
 function drawMenuCount() {
   const n = state.chats.reduce((sum, c) => sum + unreadCount(c), 0);
   $('#menu-count').textContent = n > 99 ? '99+' : n || '';
+  $('#dock-chats').hidden = !n; $('#dock-chats').textContent = n > 99 ? '99+' : n;
+  drawHome();
   $('[data-cm=private] .dot').hidden = !n;
 }
 
@@ -625,6 +640,7 @@ async function loadStudents() {
   state.students.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
   const active = state.students.filter(s => s.role === 'student').length;
   $('#student-count').textContent = active || '';
+  drawHome();
   drawStudents();
   drawReach();
   drawChatList();
@@ -712,6 +728,7 @@ async function loadYear(year) {
   ed.published = !!cal; // the bundled 2026 dates count: students already see them
   ed.dirty = false;
   drawEditor();
+  drawHome();
 }
 function setDirty() { ed.dirty = true; drawEditor(); }
 
@@ -946,4 +963,86 @@ $('#award-list').addEventListener('click', async e => {
   const b = e.target.closest('[data-delaward]');
   if (!b || !confirm('Remove this medal? The student will no longer see it.')) return;
   try { await api.deleteAward(b.dataset.delaward); } catch (err) { toast(errorText(err), 'bad'); }
+});
+
+// ---- Home: dashboard with highlights, quick actions and what needs attention ----
+$('#menu-open').addEventListener('click', () => $('#side-menu').showModal());
+document.addEventListener('click', e => { if (e.target.closest('[data-open-menu]')) $('#side-menu').showModal(); });
+$('#menu-close').addEventListener('click', () => $('#side-menu').close());
+$('#side-menu').addEventListener('click', e => { if (e.target === $('#side-menu') || e.target.closest('.side-site')) $('#side-menu').close(); });
+
+function nextClassDay() {
+  const today = todayKey();
+  return Object.entries(ed.days || {}).filter(([k, d]) => k >= today && ['training', 'blackbelt', 'grading'].includes(d.type))
+    .sort(([a], [b]) => a.localeCompare(b)).map(([key, d]) => ({ key, ...d }))[0];
+}
+let heroTimer;
+function drawHome() {
+  if (!state.user || state.view !== 'home') return;
+  const students = (state.students || []).filter(s => s.role === 'student');
+  const requests = state.requests || [];
+  const unreadChats = (state.chats || []).filter(unreadChat);
+  const unreadMsgs = unreadChats.reduce((n, c) => n + unreadCount(c), 0);
+  const paid = new Set((state.monthPay || []).filter(isMonthly).map(x => x.uid));
+  const unpaid = students.filter(s => !s.feesExempt && !paid.has(s.id));
+  const next = nextClassDay();
+  const hour = new Date().getHours();
+  const name = (savedName() || 'Sensei').split(' ')[0];
+  $('#hero-count').innerHTML = `${students.length} student${students.length === 1 ? '' : 's'} <span aria-hidden="true">›</span>`;
+
+  const slides = [];
+  if (requests.length) slides.push({ title: 'New students!', text: `${requests.length} join request${requests.length === 1 ? '' : 's'} waiting for you`, art: '<span class="hero-kanji">入</span>', go: 'requests' });
+  if (unreadMsgs) slides.push({ title: 'Messages', text: `${unreadMsgs} unread from ${unreadChats.length} student${unreadChats.length === 1 ? '' : 's'}`, art: '<span class="hero-kanji">話</span>', go: 'menu' });
+  slides.push({ title: `${hour < 12 ? 'Good morning' : hour < 18 ? 'Good afternoon' : 'Good evening'}, ${esc(name)}`, text: longDate(todayKey()), art: '<img src="assets/img/logo-light.png" alt="">', go: 'students' });
+  if (next) slides.push({ title: whenText(next.key) === 'Today' ? 'Class today' : 'Next class', text: `${TYPES[next.type].label}, ${shortDate(next.key)}`, art: '<span class="hero-kanji">道</span>', go: 'calendar' });
+  if (unpaid.length && students.length) slides.push({ title: 'Fees', text: `${unpaid.length} of ${students.length} haven’t paid for ${monthName(monthKey())}`, art: '<span class="hero-kanji">£</span>', go: 'payments' });
+  const box = $('#hero-slides');
+  const was = Math.round(box.scrollLeft / Math.max(box.clientWidth, 1));
+  box.innerHTML = slides.map(sl => `<button type="button" class="hero-slide" data-go="${sl.go}">
+      <span class="hero-text"><b>${sl.title}</b><span>${sl.text} <span aria-hidden="true">›</span></span></span>
+      <span class="hero-art">${sl.art}</span></button>`).join('');
+  const at = Math.min(was, slides.length - 1);
+  $('#hero-dots').innerHTML = slides.length > 1 ? slides.map((_, i) => `<button type="button" aria-label="Highlight ${i + 1}" data-dot="${i}"${i === at ? ' aria-current="true"' : ''}></button>`).join('') : '';
+  box.scrollLeft = at * box.clientWidth;
+  clearInterval(heroTimer);
+  if (slides.length > 1 && !matchMedia('(prefers-reduced-motion: reduce)').matches) {
+    heroTimer = setInterval(() => {
+      if (state.view !== 'home' || document.hidden) return;
+      const i = (Math.round(box.scrollLeft / box.clientWidth) + 1) % slides.length;
+      box.scrollTo({ left: i * box.clientWidth, behavior: 'smooth' });
+    }, 6000);
+  }
+
+  const todo = [
+    ...requests.map(r => ({ go: 'requests', icon: '入', b: `${esc(r.name)} wants to join`, small: [DOJOS[r.dojo], GRADES[r.grade]].filter(Boolean).join(' · ') })),
+    ...unreadChats.map(c => ({ chat: c.id, icon: '話', b: `${esc(c.name || 'A student')}: ${unreadCount(c)} new message${unreadCount(c) === 1 ? '' : 's'}`, small: esc(c.lastText || '') })),
+    ...(unpaid.length && students.length ? [{ go: 'payments', icon: '£', b: `${unpaid.length} unpaid for ${monthName(monthKey())}`, small: unpaid.slice(0, 4).map(s => esc(s.name)).join(', ') + (unpaid.length > 4 ? '…' : '') }] : []),
+  ];
+  $('#home-todo').innerHTML = todo.length ? todo.slice(0, 8).map(t => `<button type="button" class="todo-item"${t.go ? ` data-go="${t.go}"` : ` data-openchat="${esc(t.chat)}"`}>
+      <span class="quick-icon">${t.icon}</span><span><b>${t.b}</b><small>${t.small}</small></span><span class="sched-go" aria-hidden="true">›</span></button>`).join('')
+    : '<p class="muted">All caught up. No requests, unread messages or unpaid fees.</p>';
+
+  const calIcon = '<span class="sched-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4M8 14h2M12 14h2M8 17h2M12 17h2"/></svg></span>';
+  $('#home-next').innerHTML = next
+    ? `${calIcon}<span class="sched-text"><b>${whenText(next.key)}: ${TYPES[next.type].label}</b><small>${esc(next.note || TYPES[next.type].note)} · ${shortDate(next.key)}</small></span><span class="sched-go" aria-hidden="true">›</span>`
+    : `${calIcon}<span class="sched-text"><b>No classes left on the ${ed.year} calendar</b><small>Add next year’s dates in the calendar editor.</small></span><span class="sched-go" aria-hidden="true">›</span>`;
+
+  const recent = (state.awards || []).slice(0, 3);
+  $('#home-medals').innerHTML = recent.length ? recent.map(a => medalHTML({ ...a, title: `${a.studentName || 'Student'}: ${a.title}` })).join('')
+    : '<p class="muted fine">No medals yet. Tap <b>Award medal</b> above to give one.</p>';
+}
+$('#hero-slides').addEventListener('scroll', () => {
+  const box = $('#hero-slides');
+  const i = Math.round(box.scrollLeft / Math.max(box.clientWidth, 1));
+  $$('#hero-dots button').forEach((d, j) => d.toggleAttribute('aria-current', i === j));
+}, { passive: true });
+$('#hero-dots').addEventListener('click', e => {
+  const d = e.target.closest('[data-dot]');
+  if (d) $('#hero-slides').scrollTo({ left: +d.dataset.dot * $('#hero-slides').clientWidth, behavior: 'smooth' });
+});
+$('#home-todo').addEventListener('click', e => {
+  const b = e.target.closest('[data-openchat]');
+  if (!b) return;
+  show('menu'); history.replaceState(null, '', '#menu');
+  openChat(b.dataset.openchat);
 });

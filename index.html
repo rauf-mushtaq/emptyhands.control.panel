@@ -18,10 +18,18 @@
 <body class="coach">
 <div class="demo-banner" id="demo-banner" hidden>Demo mode — data is saved in this browser only. Any account made here is a Sensei. See the README to go live.</div>
 
-<header class="app-top app-top--dark">
+<header class="app-top app-top--dark" id="coach-top">
+  <button type="button" class="hero-round hero-round--sm" id="menu-open" aria-label="Menu" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 7h14M5 12h14M5 17h14"/></svg></button>
   <a class="app-brand" href="https://rauf-mushtaq.github.io/emptyhands/" aria-label="EmptyHands website"><img src="assets/img/logo-light.png" alt="EmptyHands KaraTe School" width="600" height="600"></a>
-  <span class="app-title">Sensei panel</span>
-  <nav class="coach-tabs" id="coach-tabs" aria-label="Sensei panel" hidden>
+  <span class="app-title" id="top-title">Sensei panel</span>
+  <button class="btn btn--ghost btn--sm btn--light" id="signout" hidden>Sign out</button>
+</header>
+
+<dialog id="side-menu" class="side-menu" aria-label="Menu">
+  <div class="side-head"><img src="assets/img/logo-light.png" alt="" width="48" height="48"><div><b>Sensei panel</b><small id="side-email"></small></div>
+    <button type="button" class="hero-round" id="menu-close" aria-label="Close menu"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg></button></div>
+  <nav class="coach-tabs side-links" id="coach-tabs" aria-label="Sensei panel" hidden>
+    <button data-go="home">Home</button>
     <button data-go="requests">Requests <span class="count" id="request-count"></span></button>
     <button data-go="menu">EmptyHands chats <span class="count" id="menu-count"></span></button>
     <button data-go="notices">Notices</button>
@@ -33,8 +41,8 @@
     <button data-go="calendar">Calendar</button>
     <button data-go="coaches">Sensei</button>
   </nav>
-  <button class="btn btn--ghost btn--sm btn--light" id="signout" hidden>Sign out</button>
-</header>
+  <a class="side-site" href="https://rauf-mushtaq.github.io/emptyhands/" target="_blank" rel="noopener">EmptyHands website</a>
+</dialog>
 
 <div class="loading" id="loading"><span class="spinner"></span></div>
 
@@ -72,6 +80,36 @@
     </div>
   </section>
 
+
+  <!-- Home: dashboard -->
+  <section class="view" id="view-home" hidden>
+    <div class="hero">
+      <div class="hero-top">
+        <button type="button" class="hero-round" data-open-menu aria-label="Menu"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 7h14M5 12h14M5 17h14"/></svg></button>
+        <button type="button" class="hero-pill" data-go="students" id="hero-count">Students <span aria-hidden="true">›</span></button>
+      </div>
+      <div class="hero-slides" id="hero-slides" aria-roledescription="carousel"></div>
+      <div class="hero-dots" id="hero-dots"></div>
+    </div>
+    <div class="sheet-body">
+      <div class="quick-row">
+        <button type="button" class="quick-card" data-go="notices"><span class="quick-icon">知</span><b>Send<br>notice</b></button>
+        <button type="button" class="quick-card" data-go="homework"><span class="quick-icon">宿</span><b>Set<br>homework</b></button>
+        <button type="button" class="quick-card" data-go="medals"><span class="quick-icon">🏅</span><b>Award<br>medal</b></button>
+        <button type="button" class="quick-card" data-go="payments"><span class="quick-icon">£</span><b>Who has<br>paid</b></button>
+        <button type="button" class="quick-card" data-go="licences"><span class="quick-icon">帯</span><b>Student<br>licences</b></button>
+        <button type="button" class="quick-card" data-go="students"><span class="quick-icon">人</span><b>All<br>students</b></button>
+        <button type="button" class="quick-card" data-go="calendar"><span class="quick-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg></span><b>Edit<br>calendar</b></button>
+        <button type="button" class="quick-card" data-go="coaches"><span class="quick-icon">師</span><b>Sensei &amp;<br>alerts</b></button>
+      </div>
+      <h2 class="sec-title">Needs your attention</h2>
+      <div class="todo-list" id="home-todo"></div>
+      <h2 class="sec-title">Next class <button class="linkish" data-go="calendar">Calendar</button></h2>
+      <button type="button" class="sched-card" data-go="calendar" id="home-next"></button>
+      <h2 class="sec-title sec-title--brand">Recent medals <button class="linkish" data-go="medals">All medals</button></h2>
+      <div class="medal-list" id="home-medals"></div>
+    </div>
+  </section>
 
   <!-- Join requests -->
   <section class="view" id="view-requests" hidden>
@@ -334,6 +372,16 @@
     </div>
   </section>
 </main>
+
+<div class="dock" id="dock" hidden>
+<nav class="tabbar" aria-label="Main">
+  <button data-go="home"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 11.5 12 4l9 7.5V20a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/></svg>Home</button>
+  <button data-go="menu"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16v11H9l-5 4z"/><path d="M8 9h8M8 12h5"/></svg>Chats<span class="badge" id="dock-chats" hidden></span></button>
+  <button data-go="requests"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10" cy="8" r="4"/><path d="M3 20c0-3.5 3-6 7-6s7 2.5 7 6M19 8v6M16 11h6"/></svg>Requests<span class="badge" id="dock-requests" hidden></span></button>
+  <button data-go="students"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="8" r="3.5"/><circle cx="17" cy="9" r="2.5"/><path d="M2.5 20c0-3.3 2.9-5.5 6.5-5.5s6.5 2.2 6.5 5.5M16 14.6c3 0 5.5 1.8 5.5 4.9"/></svg>Students</button>
+</nav>
+<button type="button" class="dock-action" data-go="notices" aria-label="Send a notice"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16v11H9l-5 4z"/><path d="M12 8v5M9.5 10.5h5"/></svg></button>
+</div>
 
 <dialog id="note-dialog" class="sheet">
   <form method="dialog" class="stack" id="form-note">

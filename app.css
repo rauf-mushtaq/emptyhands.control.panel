@@ -290,21 +290,27 @@ dialog.sheet h2 { font-size: 1.4rem; }
 .toast.bad { background: var(--seal-2); }
 .toast.out { opacity: 0; transform: translateY(6px); }
 @keyframes up { from { opacity: 0; transform: translateY(8px); } }
-.coach #toasts { bottom: 20px; }
+.coach #toasts { bottom: calc(var(--tabbar-h) + env(safe-area-inset-bottom) + 18px); }
 
 /* Coach panel */
-.coach-tabs { display: flex; gap: 2px; margin-left: auto; overflow-x: auto; scrollbar-width: none; }
-.coach-tabs button { border: 0; background: none; color: rgba(246, 242, 234, .65); padding: 8px 14px; border-radius: 99px; font-weight: 700; cursor: pointer; white-space: nowrap; }
-.coach-tabs button[aria-current] { background: rgba(246, 242, 234, .14); color: var(--paper); }
-.coach-tabs .count { font-size: .75rem; background: var(--seal); color: #fff; border-radius: 99px; padding: 1px 7px; margin-left: 2px; }
+.coach-tabs { display: grid; gap: 2px; }
+.coach-tabs button { display: flex; align-items: center; justify-content: space-between; }
+.coach-tabs button[aria-current] { background: var(--ink); color: var(--paper); }
+.coach-tabs .count { font-size: .75rem; background: var(--seal); color: #fff; border-radius: 99px; padding: 1px 8px; }
 .coach-tabs .count:empty { display: none; }
-@media (max-width: 760px) {
-  .app-top--dark { flex-wrap: wrap; }
-  .app-top--dark .app-title { display: none; }
-  #signout { margin-left: auto; }
-  .coach-tabs { order: 3; width: 100%; margin: 4px -8px 0; }
-  .coach-tabs button { padding: 8px 10px; font-size: .9rem; }
-}
+.side-site { display: block; padding: 13px 10px; font-weight: 600; color: var(--ink); text-decoration: none; }
+/* Sensei panel top bar (on every page but Home) */
+.coach .app-top--dark { gap: 12px; }
+.coach .app-top--dark .app-title { font-size: 1.15rem; }
+.coach #signout { margin-left: auto; }
+.hero-round--sm { width: 44px; height: 44px; }
+@media (max-width: 600px) { .coach .app-top--dark .app-brand { display: none; } }
+/* Sensei Home: what needs attention */
+.todo-list { display: grid; gap: 10px; }
+.todo-item { display: flex; align-items: center; gap: 14px; width: 100%; padding: 14px 16px; border: 1.5px solid var(--line); border-radius: 18px; background: #fff; color: var(--ink); text-align: left; cursor: pointer; font: inherit; }
+.todo-item b { display: block; }
+.todo-item small { display: block; color: var(--ink-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 60vw; }
+.todo-item .quick-icon { flex: none; }
 .coach-cols { display: grid; gap: 20px; align-items: start; margin-top: 18px; }
 @media (min-width: 900px) { .coach-cols { grid-template-columns: minmax(340px, 1fr) 1.3fr; } }
 .coach-cols .card-head { margin-top: 0; }
@@ -661,7 +667,7 @@ body.on-home .app-top { display: none; }
 @media (min-width: 900px) {
   .hero { border-radius: 0 0 28px 28px; margin: -24px 0 0; }
   .sheet-body { margin: -34px 0 0; border-radius: 28px; padding: 24px; }
-  .quick-row, .explore-row { margin: 0; padding: 4px 0 8px; }
+  .quick-row, .explore-row { margin: 0; padding: 4px 0 8px; scroll-padding-inline: 0; }
   .explore-card { flex-basis: 300px; }
 }
 /* Side menu */
@@ -676,3 +682,8 @@ body.on-home .app-top { display: none; }
 .side-links { display: grid; gap: 2px; flex: 1; align-content: start; overflow: auto; }
 .side-links button, .side-links a { text-align: left; border: 0; background: none; padding: 13px 10px; border-radius: 12px; font: inherit; font-weight: 600; font-size: 1.05rem; color: var(--ink); text-decoration: none; cursor: pointer; }
 .side-links button:hover, .side-links a:hover { background: var(--paper-2); }
+
+/* Training journal: ready-made sentences, one swipeable row */
+.quick-phrases { display: flex; flex-wrap: nowrap; gap: 8px; overflow-x: auto; scrollbar-width: none; padding-bottom: 2px; }
+.quick-phrases::-webkit-scrollbar { display: none; }
+.quick-phrases .chip { flex: none; padding: 7px 12px; font-size: .85rem; white-space: nowrap; }
