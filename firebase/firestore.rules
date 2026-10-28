@@ -158,6 +158,18 @@ service cloud.firestore {
       allow write: if isCoach();
     }
 
+    // Medals: Sensei award them to students; each student reads their own.
+    match /awards/{id} {
+      allow read: if isCoach() || (signedIn() && resource.data.uid == request.auth.uid);
+      allow create: if isCoach()
+        && request.resource.data.keys().hasOnly(['uid', 'studentName', 'title', 'medal', 'note', 'from', 'createdAt'])
+        && request.resource.data.uid is string
+        && request.resource.data.title is string && request.resource.data.title.size() > 0 && request.resource.data.title.size() <= 80
+        && request.resource.data.medal in ['gold', 'silver', 'bronze', 'trophy', 'star']
+        && request.resource.data.get('note', '') is string && request.resource.data.get('note', '').size() <= 300;
+      allow delete: if isCoach();
+    }
+
     // Student licences: Sensei keep each student's details and belt record; the student can read it.
     match /licences/{uid} {
       allow read: if isCoach() || (signedIn() && request.auth.uid == uid);

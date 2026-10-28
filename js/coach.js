@@ -4,7 +4,7 @@ import { webPushReady, webPushToken } from './webpush.js';
 import {
   $, $$, esc, GRADES, DISCIPLINES, DOJOS, AUDIENCES, renderYear, legendHTML, loadCalendar, calendarYears,
   noticeIsFor, homeworkIsFor, DEFAULT_FEES, FEE_GROUPS, FEE_LEVELS, paypalLink, longDate,
-  monthKey, monthName, isMonthly, monthlyFeeFor, money, PAY_METHODS, shortDate, timeAgo, keyOf, download, toast, busy, messageHTML, wireEdits, editing, licenceHTML, licenceFromForm,
+  monthKey, monthName, isMonthly, monthlyFeeFor, money, PAY_METHODS, shortDate, timeAgo, keyOf, download, toast, busy, messageHTML, wireEdits, editing, licenceHTML, licenceFromForm, MEDALS, MEDAL_REASONS, medalHTML,
 } from './common.js';
 
 let api;
@@ -27,6 +27,7 @@ function show(id) {
   if (id === 'homework') drawHomeworkAdmin();
   if (id === 'payments') loadPayments();
   if (id === 'licences') drawLicences();
+  if (id === 'medals') drawAwardStudents();
 }
 $('#coach-tabs').addEventListener('click', e => {
   const b = e.target.closest('[data-go]');
@@ -127,6 +128,8 @@ async function onAuth(user) {
   $('#reply-from').value = savedName();
   $('#form-homework').from.value = savedName();
   state.stops.push(api.watchChannel('group', list => { state.group = list; drawChannel(); }));
+  state.stops.push(api.watchAwards(list => { state.awards = list; drawAwards(); }));
+  $('#form-award').from.value = savedName();
   state.stops.push(api.watchChannel('journal', list => { state.journal = list; drawChannel(); }));
   state.stops.push(api.watchHomework(list => { state.homework = list; drawHomeworkAdmin(); }));
   state.stops.push(api.watchNotifications(list => { state.notices = list; drawSent(); }));
@@ -135,7 +138,7 @@ async function onAuth(user) {
   await loadStudents();
   await loadYear(ed.year);
   const start = location.hash.slice(1);
-  const chosen = ['requests', 'menu', 'notices', 'homework', 'payments', 'students', 'licences', 'calendar', 'coaches'].includes(start);
+  const chosen = ['requests', 'menu', 'notices', 'homework', 'payments', 'students', 'licences', 'medals', 'calendar', 'coaches'].includes(start);
   if (start === 'payments') loadPayments();
   show(chosen ? start : (state.requests || []).length ? 'requests' : 'menu');
   // The request list may load after this; if there are requests waiting, open on them.
@@ -893,4 +896,54 @@ $('#student-rows').addEventListener('click', e => {
   lic.uid = b.dataset.licence;
   show('licences');
   history.replaceState(null, '', '#licences');
+});
+
+// ---- Medals: Sensei award them; each student gets a notification ----
+$('#medal-pick').insertAdjacentHTML('beforeend', Object.entries(MEDALS).map(([k, m], i) =>
+  `<label class="chip"><input type="radio" name="medal" value="${k}"${i ? '' : ' checked'}> <span aria-hidden="true">${m.icon}</span> ${m.label}</label>`).join(''));
+$('#medal-reasons').innerHTML = MEDAL_REASONS.map(r => `<button type="button" class="chip" data-reason="${esc(r)}">${esc(r)}</button>`).join('');
+$('#medal-reasons').addEventListener('click', e => {
+  const b = e.target.closest('[data-reason]');
+  if (b) { const t = $('#form-award [name=title]'); t.value = b.dataset.reason; t.focus(); }
+});
+const awardPicked = new Set();
+function drawAwardStudents() {
+  const q = $('#award-search').value.trim().toLowerCase();
+  const list = state.students.filter(s => s.role === 'student' && (!q || (s.name || '').toLowerCase().includes(q)));
+  $('#award-students').innerHTML = list.map(s => `<li><label class="check"><input type="checkbox" value="${esc(s.id)}"${awardPicked.has(s.id) ? ' checked' : ''}> ${esc(s.name || s.email)} <small class="muted">${esc(GRADES[s.grade] || '')}</small></label></li>`).join('')
+    || '<li class="muted fine">No accepted students yet.</li>';
+}
+$('#award-search').addEventListener('input', drawAwardStudents);
+$('#award-students').addEventListener('change', e => { if (e.target.checked) awardPicked.add(e.target.value); else awardPicked.delete(e.target.value); });
+$('#award-all').addEventListener('click', () => { state.students.filter(s => s.role === 'student').forEach(s => awardPicked.add(s.id)); drawAwardStudents(); });
+$('#award-none').addEventListener('click', () => { awardPicked.clear(); drawAwardStudents(); });
+$('#form-award').addEventListener('submit', async e => {
+  e.preventDefault();
+  const form = e.target;
+  showError(form);
+  const titleInput = $('[name=title]', form);
+  const title = titleInput.value.trim();
+  const who = state.students.filter(s => s.role === 'student' && awardPicked.has(s.id));
+  if (!title) return showError(form, 'Say what the medal is for.');
+  if (!who.length) return showError(form, 'Choose at least one student.');
+  const medal = form.medal.value;
+  const note = form.note.value.trim();
+  const from = form.from.value.trim() || 'Sensei';
+  await busy(form.querySelector('[type=submit]'), async () => {
+    try {
+      await api.giveAwards(who.map(s => ({ uid: s.id, studentName: s.name || '', title, medal, note, from })));
+      toast(`${MEDALS[medal].icon} Medal awarded to ${who.length === 1 ? who[0].name : who.length + ' students'}`);
+      titleInput.value = ''; form.note.value = '';
+      awardPicked.clear(); drawAwardStudents();
+    } catch (err) { showError(form, errorText(err)); }
+  });
+});
+function drawAwards() {
+  const list = state.awards || [];
+  $('#award-list').innerHTML = list.length ? list.map(a => medalHTML(a, true)).join('') : '<p class="muted fine">No medals awarded yet.</p>';
+}
+$('#award-list').addEventListener('click', async e => {
+  const b = e.target.closest('[data-delaward]');
+  if (!b || !confirm('Remove this medal? The student will no longer see it.')) return;
+  try { await api.deleteAward(b.dataset.delaward); } catch (err) { toast(errorText(err), 'bad'); }
 });

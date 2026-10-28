@@ -577,3 +577,17 @@ body.in-chat .chat-compose { flex: none; position: static; }
   .licence--edit input::placeholder { color: transparent; }
   .licence--edit .lic-auth input { width: 100% !important; display: block; }
 }
+
+/* Medals */
+.medal-list { display: grid; gap: 12px; grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr)); }
+.medal { display: flex; gap: 14px; align-items: center; background: var(--card); border: 1px solid var(--line); border-radius: 16px; padding: 14px 16px; border-left: 5px solid var(--medal, var(--bronze)); }
+.medal--gold { --medal: #d4a017; } .medal--silver { --medal: #a8a9ad; } .medal--bronze { --medal: #b0703c; } .medal--trophy { --medal: #d4a017; } .medal--star { --medal: #e8b923; }
+.medal-icon { font-size: 2.4rem; line-height: 1; width: 56px; height: 56px; display: grid; place-items: center; border-radius: 50%; background: color-mix(in srgb, var(--medal) 18%, #fff); flex: none; }
+.medal-body h3 { margin: 0 0 2px; font-size: 1.05rem; }
+.medal-body p { margin: 0 0 4px; color: var(--ink-2); overflow-wrap: anywhere; }
+.medal-body footer { font-size: .8rem; color: var(--ink-3); }
+.medal-cta .pay-cta-icon { background: #fff3c4; font-size: 1.3rem; }
+.count-pill { display: inline-block; min-width: 20px; padding: 0 7px; margin-left: 4px; border-radius: 99px; background: var(--seal); color: #fff; font-size: .72rem; line-height: 20px; text-align: center; vertical-align: middle; }
+.award-students { max-height: 260px; overflow: auto; border: 1px solid var(--line); border-radius: 10px; padding: 6px 10px; margin: 6px 0 0; }
+.award-students li { padding: 4px 0; }
+.medal-reasons .chip { padding: 6px 12px; font-size: .86rem; }

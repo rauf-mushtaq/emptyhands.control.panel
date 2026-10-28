@@ -141,6 +141,18 @@ async function firebaseBackend() {
 
     getCoaches: async () => { const s = await F.getDoc(ref('settings', 'coaches')); return s.exists() ? s.data().emails || [] : []; },
 
+    // Medals Sensei award (awards/{id}, one per student); each student reads their own.
+    watchMyAwards: (uid, cb) => F.onSnapshot(F.query(F.collection(db, 'awards'), F.where('uid', '==', uid)),
+      snap => cb(rows(snap).map(a => ({ ...a, createdAt: millis(a.createdAt) })).sort((a, b) => b.createdAt - a.createdAt)), err => console.error(err)),
+    watchAwards: cb => F.onSnapshot(F.query(F.collection(db, 'awards'), F.orderBy('createdAt', 'desc'), F.limit(300)),
+      snap => cb(rows(snap).map(a => ({ ...a, createdAt: millis(a.createdAt) }))), err => console.error(err)),
+    giveAwards: async list => {
+      const batch = F.writeBatch(db);
+      list.forEach(a => batch.set(F.doc(F.collection(db, 'awards')), { ...a, createdAt: F.serverTimestamp() }));
+      await batch.commit();
+    },
+    deleteAward: id => F.deleteDoc(ref('awards', id)),
+
     // Student licences (licences/{uid}): Sensei fill them in; each student can read their own.
     getLicence: async uid => { const s = await F.getDoc(ref('licences', uid)); return s.exists() ? s.data() : null; },
     saveLicence: (uid, data) => F.setDoc(ref('licences', uid), { ...data, updatedAt: Date.now() }),
@@ -279,6 +291,10 @@ function demoBackend() {
     listCalendarYears: async () => Object.keys(cals.all()).map(Number),
 
     getCoaches: async () => load('coaches', []),
+    watchMyAwards: (uid, cb) => watch('awards', () => load('awards', []).filter(a => a.uid === uid).sort((a, b) => b.createdAt - a.createdAt), cb),
+    watchAwards: cb => watch('awards', () => load('awards', []).sort((a, b) => b.createdAt - a.createdAt), cb),
+    giveAwards: async list => { const now = Date.now(); save('awards', [...load('awards', []), ...list.map((a, i) => ({ ...a, id: 'a' + now.toString(36) + i, createdAt: now }))]); },
+    deleteAward: async id => save('awards', load('awards', []).filter(a => a.id !== id)),
     getLicence: async uid => load('lic:' + uid, null),
     saveLicence: async (uid, data) => save('lic:' + uid, { ...data, updatedAt: Date.now() }),
     watchLicence: (uid, cb) => watch('lic:' + uid, () => load('lic:' + uid, null), cb),

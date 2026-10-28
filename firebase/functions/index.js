@@ -91,6 +91,14 @@ exports.pushGroup = onDocumentCreated({ document: 'channels/group/messages/{id}'
   await pushToStudents(() => true, { title: (m.author || 'Sensei') + ' in the group chat', body: m.text }, { channel: 'group' }, 'menu');
 });
 
+// Sensei awarded a medal.
+const MEDAL_ICONS = { gold: '🥇', silver: '🥈', bronze: '🥉', trophy: '🏆', star: '⭐' };
+exports.pushAward = onDocumentCreated({ document: 'awards/{id}', region: 'europe-west2' }, async event => {
+  const a = event.data.data();
+  await pushToStudents(id => id === a.uid, { title: `${MEDAL_ICONS[a.medal] || '🏅'} You’ve earned a medal!`, body: a.title + (a.note ? ` – ${a.note}` : '') },
+    { award: event.params.id }, 'medals');
+});
+
 // ---- Notifications for Sensei (coachDevices/{uid} holds each Sensei's devices) ----
 async function pushToCoaches(notification, data, view) {
   const db = getFirestore();

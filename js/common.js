@@ -24,6 +24,27 @@ export const GRADES = {
   brown2: 'Brown 2 stripe belt',
   dan: 'Black belt',
 };
+// Medals Sensei can award, and some ready-made reasons (Sensei can write their own).
+export const MEDALS = {
+  gold: { label: 'Gold medal', icon: '🥇' },
+  silver: { label: 'Silver medal', icon: '🥈' },
+  bronze: { label: 'Bronze medal', icon: '🥉' },
+  trophy: { label: 'Trophy', icon: '🏆' },
+  star: { label: 'Star', icon: '⭐' },
+};
+export const MEDAL_REASONS = ['Perfect attendance', 'Most improved', 'Best kata', 'Great effort', 'Kumite champion', 'Fantastic grading', 'Helping others', 'Great attitude'];
+export function medalHTML(a, del) {
+  const m = MEDALS[a.medal] || MEDALS.star;
+  return `<article class="medal medal--${esc(a.medal in MEDALS ? a.medal : 'star')}">
+    <div class="medal-icon" aria-hidden="true">${m.icon}</div>
+    <div class="medal-body">
+      <h3>${esc(a.title)}</h3>
+      ${a.note ? `<p>${esc(a.note).replace(/\n/g, '<br>')}</p>` : ''}
+      <footer>${esc(m.label)} · ${a.studentName && del ? esc(a.studentName) + ' · ' : ''}${esc(a.from || 'Sensei')} · ${a.createdAt ? new Date(a.createdAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : ''}${del ? ` · <button type="button" class="linkish danger" data-delaward="${esc(a.id)}">Remove</button>` : ''}</footer>
+    </div>
+  </article>`;
+}
+
 // The belts on the student licence, in order, as on EmptyHands' paper licence.
 export const LICENCE_BELTS = [
   { grade: 'none', belt: 'White', rank: '10th Kyu', level: 'Beginner', bg: '#ffffff', fg: '#1c1a16' },

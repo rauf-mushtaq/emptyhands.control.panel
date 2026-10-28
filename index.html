@@ -29,6 +29,7 @@
     <button data-go="payments">Payments</button>
     <button data-go="students">Students <span class="count" id="student-count"></span></button>
     <button data-go="licences">Licences</button>
+    <button data-go="medals">Medals</button>
     <button data-go="calendar">Calendar</button>
     <button data-go="coaches">Sensei</button>
   </nav>
@@ -239,6 +240,33 @@
       <p class="form-error" hidden></p>
       <div class="row-actions no-print"><button class="btn btn--seal" type="submit">Save licence</button></div>
     </form>
+  </section>
+
+  <!-- Medals: Sensei award them; each student gets a notification -->
+  <section class="view" id="view-medals" hidden>
+    <div class="view-head"><div><p class="eyebrow">Rewards</p><h1>Medals</h1></div></div>
+    <div class="coach-cols">
+      <form class="card stack" id="form-award" novalidate>
+        <h2>Award a medal</h2>
+        <fieldset class="chips medal-pick" id="medal-pick"><legend class="sr-only">Medal</legend></fieldset>
+        <label>What it’s for<input name="title" maxlength="80" required placeholder="e.g. Perfect attendance – October"></label>
+        <div class="chips medal-reasons" id="medal-reasons" aria-label="Quick reasons"></div>
+        <label>Note <small>(optional)</small><textarea name="note" rows="3" maxlength="300" placeholder="e.g. You came to every class this month. Well done!"></textarea></label>
+        <div class="award-to">
+          <div class="card-head"><b>Give to</b><span><button type="button" class="linkish" id="award-all">Select all</button> · <button type="button" class="linkish" id="award-none">Clear</button></span></div>
+          <input type="search" id="award-search" placeholder="Find a student…" aria-label="Find a student">
+          <ul class="plain award-students" id="award-students"></ul>
+        </div>
+        <label>Signed<input name="from" maxlength="60" placeholder="e.g. Azeem Sensei"></label>
+        <p class="form-error" hidden></p>
+        <button class="btn btn--seal" type="submit">Award medal</button>
+        <p class="muted fine">Each student gets a notification and sees it under <i>My medals</i> in their app.</p>
+      </form>
+      <div class="card stack">
+        <h2>Medals awarded</h2>
+        <div class="medal-list" id="award-list"></div>
+      </div>
+    </div>
   </section>
 
   <!-- Calendar editor -->
