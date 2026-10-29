@@ -142,6 +142,13 @@ async function firebaseBackend() {
     getCoaches: async () => { const s = await F.getDoc(ref('settings', 'coaches')); return s.exists() ? s.data().emails || [] : []; },
 
     // Medals Sensei award (awards/{id}, one per student); each student reads their own.
+    // Attendance register: attendance/{yyyy-mm-dd} lists the uids present. Students read the days they attended.
+    getAttendance: async date => { const s = await F.getDoc(ref('attendance', date)); return s.exists() ? s.data() : null; },
+    saveAttendance: (date, present, by) => F.setDoc(ref('attendance', date), { date, month: date.slice(0, 7), present, by, updatedAt: Date.now() }),
+    watchAttendanceMonth: (month, cb) => F.onSnapshot(F.query(F.collection(db, 'attendance'), F.where('month', '==', month)),
+      snap => cb(rows(snap)), err => console.error(err)),
+    watchMyAttendance: (uid, cb) => F.onSnapshot(F.query(F.collection(db, 'attendance'), F.where('present', 'array-contains', uid)),
+      snap => cb(rows(snap).map(d => d.date).sort().reverse()), err => console.error(err)),
     watchMyAwards: (uid, cb) => F.onSnapshot(F.query(F.collection(db, 'awards'), F.where('uid', '==', uid)),
       snap => cb(rows(snap).map(a => ({ ...a, createdAt: millis(a.createdAt) })).sort((a, b) => b.createdAt - a.createdAt)), err => console.error(err)),
     watchAwards: cb => F.onSnapshot(F.query(F.collection(db, 'awards'), F.orderBy('createdAt', 'desc'), F.limit(300)),
@@ -291,6 +298,10 @@ function demoBackend() {
     listCalendarYears: async () => Object.keys(cals.all()).map(Number),
 
     getCoaches: async () => load('coaches', []),
+    getAttendance: async date => load('att', {})[date] || null,
+    saveAttendance: async (date, present, by) => { const t = load('att', {}); t[date] = { id: date, date, month: date.slice(0, 7), present, by, updatedAt: Date.now() }; save('att', t); },
+    watchAttendanceMonth: (month, cb) => watch('att', () => Object.values(load('att', {})).filter(d => d.month === month), cb),
+    watchMyAttendance: (uid, cb) => watch('att', () => Object.values(load('att', {})).filter(d => d.present.includes(uid)).map(d => d.date).sort().reverse(), cb),
     watchMyAwards: (uid, cb) => watch('awards', () => load('awards', []).filter(a => a.uid === uid).sort((a, b) => b.createdAt - a.createdAt), cb),
     watchAwards: cb => watch('awards', () => load('awards', []).sort((a, b) => b.createdAt - a.createdAt), cb),
     giveAwards: async list => { const now = Date.now(); save('awards', [...load('awards', []), ...list.map((a, i) => ({ ...a, id: 'a' + now.toString(36) + i, createdAt: now }))]); },

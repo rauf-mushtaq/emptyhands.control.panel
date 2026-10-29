@@ -158,6 +158,16 @@ service cloud.firestore {
       allow write: if isCoach();
     }
 
+    // Attendance register: Sensei mark who came; each student reads the days they attended.
+    match /attendance/{date} {
+      allow read: if isCoach() || (signedIn() && request.auth.uid in resource.data.present);
+      allow write: if isCoach() && date.matches('^\\d{4}-\\d{2}-\\d{2}$')
+        && request.resource.data.keys().hasOnly(['date', 'month', 'present', 'by', 'updatedAt'])
+        && request.resource.data.date == date && request.resource.data.month == date[0:7]
+        && request.resource.data.present is list && request.resource.data.present.size() <= 500;
+      allow delete: if isCoach();
+    }
+
     // Medals: Sensei award them to students; each student reads their own.
     match /awards/{id} {
       allow read: if isCoach() || (signedIn() && resource.data.uid == request.auth.uid);

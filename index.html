@@ -37,6 +37,7 @@
     <button data-go="payments">Payments</button>
     <button data-go="students">Students <span class="count" id="student-count"></span></button>
     <button data-go="licences">Licences</button>
+    <button data-go="register">Register</button>
     <button data-go="medals">Medals</button>
     <button data-go="calendar">Calendar</button>
     <button data-go="coaches">Sensei</button>
@@ -93,6 +94,7 @@
     </div>
     <div class="sheet-body">
       <div class="quick-row">
+        <button type="button" class="quick-card" data-go="register"><span class="quick-icon">✓</span><b>Take<br>register</b></button>
         <button type="button" class="quick-card" data-go="notices"><span class="quick-icon">知</span><b>Send<br>notice</b></button>
         <button type="button" class="quick-card" data-go="homework"><span class="quick-icon">宿</span><b>Set<br>homework</b></button>
         <button type="button" class="quick-card" data-go="medals"><span class="quick-icon">🏅</span><b>Award<br>medal</b></button>
@@ -278,6 +280,33 @@
       <p class="form-error" hidden></p>
       <div class="row-actions no-print"><button class="btn btn--seal" type="submit">Save licence</button></div>
     </form>
+  </section>
+
+  <!-- Register: who came to each class -->
+  <section class="view" id="view-register" hidden>
+    <div class="view-head">
+      <div><p class="eyebrow">Attendance</p><h1>Register</h1></div>
+      <div class="view-actions">
+        <label class="sr-only" for="reg-date">Date</label><input type="date" id="reg-date">
+        <label class="sr-only" for="reg-class">Class</label><select id="reg-class"><option value="">All students</option><option value="karate">Karate</option><option value="taichi">Tai Chi</option><option value="yoga">Yoga</option></select>
+      </div>
+    </div>
+    <div class="coach-cols">
+      <form class="card stack" id="form-register" novalidate>
+        <div class="card-head"><h2 id="reg-title">Who came?</h2><span><button type="button" class="linkish" id="reg-all">Mark all</button> · <button type="button" class="linkish" id="reg-none">Clear</button></span></div>
+        <p class="muted fine" id="reg-status"></p>
+        <input type="search" id="reg-search" placeholder="Find a student…" aria-label="Find a student">
+        <ul class="plain reg-list" id="reg-list"></ul>
+        <p class="form-error" hidden></p>
+        <button class="btn btn--seal" type="submit">Save register</button>
+      </form>
+      <div class="card stack">
+        <div class="card-head"><h2>Monthly summary</h2><select id="reg-month" aria-label="Month"></select></div>
+        <p class="muted fine" id="reg-month-info"></p>
+        <div class="table-wrap"><table class="students reg-summary"><thead><tr><th>Student</th><th>Classes</th><th>Attendance</th></tr></thead><tbody id="reg-summary"></tbody></table></div>
+        <button type="button" class="btn btn--ghost" id="reg-medal" hidden>🥇 Award perfect attendance medals</button>
+      </div>
+    </div>
   </section>
 
   <!-- Medals: Sensei award them; each student gets a notification -->

@@ -35,6 +35,7 @@ function show(id) {
   if (id === 'payments') loadPayments();
   if (id === 'licences') drawLicences();
   if (id === 'medals') drawAwardStudents();
+  if (id === 'register') openRegister();
 }
 // Any [data-go] button (side menu, bottom bar, Home cards) opens that page.
 document.addEventListener('click', e => {
@@ -150,7 +151,7 @@ async function onAuth(user) {
   await loadStudents();
   await loadYear(ed.year);
   const start = location.hash.slice(1);
-  const chosen = ['home', 'requests', 'menu', 'notices', 'homework', 'payments', 'students', 'licences', 'medals', 'calendar', 'coaches'].includes(start);
+  const chosen = ['home', 'requests', 'menu', 'notices', 'homework', 'payments', 'students', 'licences', 'register', 'medals', 'calendar', 'coaches'].includes(start);
   if (start === 'payments') loadPayments();
   show(chosen ? start : 'home');
   state.autoStart = false;
@@ -1045,4 +1046,116 @@ $('#home-todo').addEventListener('click', e => {
   if (!b) return;
   show('menu'); history.replaceState(null, '', '#menu');
   openChat(b.dataset.openchat);
+});
+
+// ---- Register: who came to each class ----
+const reg = { date: null, present: new Set(), saved: null, month: null, days: [], stop: null, dirty: false };
+// Today if it's a class day, else the most recent class day on the calendar (or today).
+function defaultRegDate() {
+  const today = todayKey();
+  const past = Object.entries(ed.days || {}).filter(([k, d]) => k <= today && ['training', 'blackbelt', 'grading'].includes(d.type)).map(([k]) => k).sort();
+  return (ed.days[today] && ed.days[today].type && ed.days[today].type !== 'closed') ? today : past.pop() || today;
+}
+const regStudents = () => {
+  const cls = $('#reg-class').value;
+  return (state.students || []).filter(s => s.role === 'student' && (!cls || (s.disciplines || []).includes(cls)));
+};
+async function openRegister() {
+  if (!reg.date) { reg.date = defaultRegDate(); $('#reg-date').value = reg.date; }
+  if (!reg.month) pickRegMonth(reg.date.slice(0, 7));
+  await loadRegister();
+}
+async function loadRegister() {
+  reg.date = $('#reg-date').value || todayKey();
+  const d = await api.getAttendance(reg.date).catch(err => { toast(errorText(err), 'bad'); return null; });
+  reg.saved = d;
+  reg.present = new Set((d && d.present) || []);
+  reg.dirty = false;
+  drawRegister();
+}
+function drawRegister() {
+  const q = $('#reg-search').value.trim().toLowerCase();
+  const list = regStudents();
+  const shown = list.filter(s => !q || (s.name || '').toLowerCase().includes(q));
+  const day = ed.days[reg.date];
+  $('#reg-title').textContent = `Who came on ${shortDate(reg.date)}?`;
+  const here = list.filter(s => reg.present.has(s.id)).length;
+  $('#reg-status').textContent = `${here} of ${list.length} here` + (day && day.type ? ` · ${TYPES[day.type].label}` : '')
+    + (reg.saved ? ' · saved' : ' · not saved yet') + (reg.dirty ? ' · unsaved changes' : '');
+  $('#reg-list').innerHTML = shown.map(s => `<li><button type="button" class="reg-row${reg.present.has(s.id) ? ' is-here' : ''}" data-reg="${esc(s.id)}" aria-pressed="${reg.present.has(s.id)}">
+      <span class="reg-tick" aria-hidden="true">✓</span><span><b>${esc(s.name || s.email)}</b><small>${esc(GRADES[s.grade] || '')}</small></span></button></li>`).join('')
+    || '<li class="muted fine">No students in this class yet.</li>';
+}
+$('#reg-list').addEventListener('click', e => {
+  const b = e.target.closest('[data-reg]');
+  if (!b) return;
+  const id = b.dataset.reg;
+  if (reg.present.has(id)) reg.present.delete(id); else reg.present.add(id);
+  reg.dirty = true;
+  drawRegister();
+});
+$('#reg-all').addEventListener('click', () => { regStudents().forEach(s => reg.present.add(s.id)); reg.dirty = true; drawRegister(); });
+$('#reg-none').addEventListener('click', () => { regStudents().forEach(s => reg.present.delete(s.id)); reg.dirty = true; drawRegister(); });
+$('#reg-search').addEventListener('input', drawRegister);
+$('#reg-class').addEventListener('change', drawRegister);
+$('#reg-date').addEventListener('change', async () => {
+  if (reg.dirty && !confirm('You haven’t saved this register. Switch date anyway?')) { $('#reg-date').value = reg.date; return; }
+  await loadRegister();
+  if ($('#reg-date').value.slice(0, 7) !== reg.month) pickRegMonth($('#reg-date').value.slice(0, 7));
+});
+$('#form-register').addEventListener('submit', async e => {
+  e.preventDefault();
+  const form = e.target;
+  showError(form);
+  // Keep anyone already marked who isn't in the current class filter.
+  await busy(form.querySelector('[type=submit]'), async () => {
+    try {
+      await api.saveAttendance(reg.date, [...reg.present], savedName() || 'Sensei');
+      reg.saved = { present: [...reg.present] };
+      reg.dirty = false;
+      toast(`Register saved: ${reg.present.size} here on ${shortDate(reg.date)}`);
+      drawRegister();
+    } catch (err) { showError(form, errorText(err)); }
+  });
+});
+
+function pickRegMonth(m) {
+  reg.month = m;
+  const months = [];
+  for (let i = 0; i < 6; i++) { const d = new Date(); d.setDate(1); d.setMonth(d.getMonth() - i); months.push(monthKey(d)); }
+  if (!months.includes(m)) months.unshift(m);
+  $('#reg-month').innerHTML = months.map(k => `<option value="${k}"${k === m ? ' selected' : ''}>${monthName(k)}</option>`).join('');
+  if (reg.stop) reg.stop();
+  reg.stop = api.watchAttendanceMonth(m, list => { reg.days = list; drawRegSummary(); });
+}
+$('#reg-month').addEventListener('change', e => pickRegMonth(e.target.value));
+function perfectStudents() {
+  const sessions = reg.days.length;
+  return sessions ? (state.students || []).filter(s => s.role === 'student' && reg.days.every(d => (d.present || []).includes(s.id))) : [];
+}
+function drawRegSummary() {
+  const sessions = reg.days.length;
+  $('#reg-month-info').textContent = sessions ? `${sessions} register${sessions === 1 ? '' : 's'} taken in ${monthName(reg.month)}.` : `No registers taken in ${monthName(reg.month)} yet.`;
+  const rows = (state.students || []).filter(s => s.role === 'student')
+    .map(s => ({ s, n: reg.days.filter(d => (d.present || []).includes(s.id)).length }))
+    .sort((a, b) => b.n - a.n || (a.s.name || '').localeCompare(b.s.name || ''));
+  $('#reg-summary').innerHTML = sessions ? rows.map(({ s, n }) => `<tr><td data-th="Student">${esc(s.name)}</td><td data-th="Classes">${n} of ${sessions}</td>
+      <td data-th="Attendance"><span class="att-bar"><span style="width:${Math.round(n / sessions * 100)}%"></span></span> ${Math.round(n / sessions * 100)}%${n === sessions ? ' 🥇' : ''}</td></tr>`).join('') : '';
+  const perfect = perfectStudents();
+  $('#reg-medal').hidden = !perfect.length;
+  $('#reg-medal').textContent = `🥇 Award perfect attendance medals (${perfect.length})`;
+}
+// Opens Medals with the perfect-attendance students ticked and the reason filled in.
+$('#reg-medal').addEventListener('click', () => {
+  const perfect = perfectStudents();
+  awardPicked.clear();
+  perfect.forEach(s => awardPicked.add(s.id));
+  show('medals');
+  history.replaceState(null, '', '#medals');
+  const f = $('#form-award');
+  $('[name=title]', f).value = `Perfect attendance – ${monthName(reg.month).replace(/ \d{4}$/, '')}`;
+  f.querySelector('input[name=medal][value=gold]').checked = true;
+  if (!f.note.value) f.note.value = 'You came to every class this month. Well done!';
+  drawAwardStudents();
+  toast(`${perfect.length} student${perfect.length === 1 ? '' : 's'} ticked. Check and tap Award medal.`);
 });
