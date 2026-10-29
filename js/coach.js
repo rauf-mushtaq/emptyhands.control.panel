@@ -728,6 +728,10 @@ async function loadYear(year) {
   ed.pdf = (cal && cal.pdf) || '';
   ed.published = !!cal; // the bundled 2026 dates count: students already see them
   ed.dirty = false;
+  // Registers taken this year, shown on the calendar and when a date is tapped.
+  if (ed.attStop) ed.attStop();
+  ed.att = {};
+  ed.attStop = api.watchAttendanceYear(ed.year, list => { ed.att = Object.fromEntries(list.map(d => [d.date, d.present || []])); drawEditor(); });
   drawEditor();
   drawHome();
 }
@@ -744,13 +748,15 @@ async function drawEditor() {
   const counts = {};
   Object.values(ed.days).forEach(d => { if (d.type) counts[d.type] = (counts[d.type] || 0) + 1; });
   $('#ed-legend').innerHTML = legendHTML(counts);
-  renderYear($('#ed-grid'), ed.year, { days: ed.days, editable: true, onDay: editDay });
+  const marks = Object.fromEntries(Object.keys(ed.att || {}).map(k => [k, 'reg']));
+  renderYear($('#ed-grid'), ed.year, { days: ed.days, editable: true, onDay: editDay, marks });
   if (document.activeElement !== $('#ed-timings')) $('#ed-timings').value = ed.timings.join('\n');
   if (document.activeElement !== $('#ed-pdf')) $('#ed-pdf').value = ed.pdf;
 }
 
 function editDay(key) {
   const brush = $('[name=brush]:checked').value;
+  if (brush === 'register') return showRegisterDay(key);
   const entry = { ...(ed.days[key] || {}) };
   if (brush === 'note') {
     $('#note-when').textContent = longDate(key);
@@ -1158,4 +1164,35 @@ $('#reg-medal').addEventListener('click', () => {
   if (!f.note.value) f.note.value = 'You came to every class this month. Well done!';
   drawAwardStudents();
   toast(`${perfect.length} student${perfect.length === 1 ? '' : 's'} ticked. Check and tap Award medal.`);
+});
+
+// The register for one date, from the calendar: ✓ who was there and ✗ who wasn't.
+function showRegisterDay(key) {
+  const present = (ed.att || {})[key];
+  const end = new Date(key + 'T23:59:59').getTime();
+  const students = (state.students || []).filter(s => s.role === 'student' && (!s.createdAt || s.createdAt <= end));
+  const day = ed.days[key];
+  $('#regd-when').textContent = day && day.type ? TYPES[day.type].label : 'Register';
+  $('#regd-title').textContent = longDate(key);
+  if (!present) {
+    $('#regd-sum').textContent = 'No register taken for this date yet.';
+    $('#regd-list').innerHTML = '';
+  } else {
+    const here = students.filter(s => present.includes(s.id));
+    const away = students.filter(s => !present.includes(s.id));
+    $('#regd-sum').textContent = `${here.length} there · ${away.length} not there`;
+    $('#regd-list').innerHTML = [...here.map(s => [s, true]), ...away.map(s => [s, false])]
+      .map(([s, ok]) => `<li class="regd ${ok ? 'is-here' : 'is-away'}"><span aria-hidden="true">${ok ? '✓' : '✗'}</span> ${esc(s.name || s.email)}<span class="sr-only">${ok ? ' was there' : ' was not there'}</span></li>`).join('');
+  }
+  $('#reg-dialog').dataset.key = key;
+  $('#reg-dialog').showModal();
+}
+$('#regd-edit').addEventListener('click', async () => {
+  const key = $('#reg-dialog').dataset.key;
+  $('#reg-dialog').close();
+  reg.date = key;
+  $('#reg-date').value = key;
+  if (key.slice(0, 7) !== reg.month) pickRegMonth(key.slice(0, 7));
+  show('register'); // loads the register for that date
+  history.replaceState(null, '', '#register');
 });

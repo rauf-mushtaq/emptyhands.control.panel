@@ -144,7 +144,17 @@ async function firebaseBackend() {
     // Medals Sensei award (awards/{id}, one per student); each student reads their own.
     // Attendance register: attendance/{yyyy-mm-dd} lists the uids present. Students read the days they attended.
     getAttendance: async date => { const s = await F.getDoc(ref('attendance', date)); return s.exists() ? s.data() : null; },
-    saveAttendance: (date, present, by) => F.setDoc(ref('attendance', date), { date, month: date.slice(0, 7), present, by, updatedAt: Date.now() }),
+    // registerDays/{date} (no names) lets students see which days had a register, to mark ✗ when absent.
+    saveAttendance: async (date, present, by) => {
+      const batch = F.writeBatch(db);
+      batch.set(ref('attendance', date), { date, month: date.slice(0, 7), present, by, updatedAt: Date.now() });
+      batch.set(ref('registerDays', date), { date });
+      await batch.commit();
+    },
+    watchRegisterDays: (year, cb) => F.onSnapshot(F.query(F.collection(db, 'registerDays'), F.where('date', '>=', year + '-01-01'), F.where('date', '<=', year + '-12-31')),
+      snap => cb(rows(snap).map(d => d.date)), err => console.error(err)),
+    watchAttendanceYear: (year, cb) => F.onSnapshot(F.query(F.collection(db, 'attendance'), F.where('date', '>=', year + '-01-01'), F.where('date', '<=', year + '-12-31')),
+      snap => cb(rows(snap)), err => console.error(err)),
     watchAttendanceMonth: (month, cb) => F.onSnapshot(F.query(F.collection(db, 'attendance'), F.where('month', '==', month)),
       snap => cb(rows(snap)), err => console.error(err)),
     watchMyAttendance: (uid, cb) => F.onSnapshot(F.query(F.collection(db, 'attendance'), F.where('present', 'array-contains', uid)),
@@ -300,6 +310,8 @@ function demoBackend() {
     getCoaches: async () => load('coaches', []),
     getAttendance: async date => load('att', {})[date] || null,
     saveAttendance: async (date, present, by) => { const t = load('att', {}); t[date] = { id: date, date, month: date.slice(0, 7), present, by, updatedAt: Date.now() }; save('att', t); },
+    watchRegisterDays: (year, cb) => watch('att', () => Object.keys(load('att', {})).filter(d => d.startsWith(year + '-')), cb),
+    watchAttendanceYear: (year, cb) => watch('att', () => Object.values(load('att', {})).filter(d => d.date.startsWith(year + '-')), cb),
     watchAttendanceMonth: (month, cb) => watch('att', () => Object.values(load('att', {})).filter(d => d.month === month), cb),
     watchMyAttendance: (uid, cb) => watch('att', () => Object.values(load('att', {})).filter(d => d.present.includes(uid)).map(d => d.date).sort().reverse(), cb),
     watchMyAwards: (uid, cb) => watch('awards', () => load('awards', []).filter(a => a.uid === uid).sort((a, b) => b.createdAt - a.createdAt), cb),

@@ -348,8 +348,9 @@
       </div>
     </div>
     <div class="brushes" role="radiogroup" aria-label="What a click marks">
-      <span class="brush-label">Click dates to mark:</span>
-      <label class="brush"><input type="radio" name="brush" value="training" checked><span class="swatch t-training"></span>Training</label>
+      <span class="brush-label">Click a date to:</span>
+      <label class="brush"><input type="radio" name="brush" value="register" checked><span class="swatch t-register">✓</span>View register</label>
+      <label class="brush"><input type="radio" name="brush" value="training"><span class="swatch t-training"></span>Training</label>
       <label class="brush"><input type="radio" name="brush" value="closed"><span class="swatch t-closed"></span>Closed</label>
       <label class="brush"><input type="radio" name="brush" value="blackbelt"><span class="swatch t-blackbelt"></span>Black belt</label>
       <label class="brush"><input type="radio" name="brush" value="grading"><span class="swatch t-grading"></span>Grading / workshop</label>
@@ -411,6 +412,16 @@
 </nav>
 <button type="button" class="dock-action" data-go="notices" aria-label="Send a notice"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16v11H9l-5 4z"/><path d="M12 8v5M9.5 10.5h5"/></svg></button>
 </div>
+
+<dialog id="reg-dialog" class="sheet">
+  <form method="dialog" class="stack">
+    <p class="eyebrow" id="regd-when"></p>
+    <h2 id="regd-title"></h2>
+    <p class="muted fine" id="regd-sum"></p>
+    <ul class="plain regd-list" id="regd-list"></ul>
+    <div class="row-actions"><button type="button" class="btn btn--seal" id="regd-edit">Take / edit register</button><button class="btn btn--ghost">Close</button></div>
+  </form>
+</dialog>
 
 <dialog id="note-dialog" class="sheet">
   <form method="dialog" class="stack" id="form-note">

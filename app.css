@@ -704,3 +704,19 @@ body.on-home .app-top { display: none; }
 .att-month { margin-bottom: 10px; }
 .att-month .chip { cursor: default; font-size: .86rem; padding: 6px 10px; }
 .att-month .card-head { margin-top: 0; }
+
+/* Attendance on the calendar: ✓ attended, ✗ missed, a dot where a register was taken (Sensei) */
+.cal-day.att-here, .cal-day.att-away, .cal-day.att-reg { position: relative; }
+.cal-day.att-here::after, .cal-day.att-away::after { position: absolute; top: -5px; right: -5px; width: 15px; height: 15px; border-radius: 50%; display: grid; place-items: center; font-size: 10px; font-weight: 700; line-height: 1; color: #fff; box-shadow: 0 0 0 2px var(--paper); }
+.cal-day.att-here::after { content: "✓"; background: #2e7d4f; }
+.cal-day.att-away::after { content: "✗"; background: var(--seal); }
+.cal-day.att-reg::before { content: ""; position: absolute; bottom: 2px; left: 50%; width: 6px; height: 6px; margin-left: -3px; border-radius: 50%; background: #2e7d4f; }
+.swatch.t-register { display: inline-grid; place-items: center; background: #2e7d4f; color: #fff; font-size: 10px; font-weight: 700; }
+.day-att { padding: 10px 12px; border-radius: 10px; font-weight: 700; }
+.day-att.is-here { background: #eef7f1; color: #2e7d4f; }
+.day-att.is-away { background: #f8e1dd; color: var(--seal-2); }
+.regd-list { display: grid; gap: 4px; max-height: 50vh; overflow: auto; margin: 0; }
+.regd { display: flex; justify-content: flex-start; gap: 10px; align-items: center; padding: 8px 10px; border-radius: 10px; font-weight: 600; }
+.regd > span:first-child { width: 24px; height: 24px; border-radius: 50%; display: grid; place-items: center; color: #fff; font-size: .8rem; flex: none; }
+.regd.is-here { background: #eef7f1; } .regd.is-here > span:first-child { background: #2e7d4f; }
+.regd.is-away { background: #fbefec; } .regd.is-away > span:first-child { background: var(--seal); }

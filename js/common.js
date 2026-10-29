@@ -289,9 +289,12 @@ export function renderYear(el, year, opts = {}) {
         if (opts.profile && !isRelevant(entry.type, opts.profile)) cls.push(opts.onlyMine ? 'is-hidden-type' : 'is-faded');
       }
       if (entry && entry.note) { cls.push('has-note'); label += ' — ' + entry.note; }
+      // Attendance marks: 'here' (✓), 'away' (✗) or 'reg' (a register was taken).
+      const mark = opts.marks && opts.marks[key];
+      if (mark) { cls.push('att-' + mark); label += mark === 'here' ? ' — you were there' : mark === 'away' ? ' — not marked present' : ' — register taken'; }
       if (key === today) cls.push('is-today');
       if (key < today) cls.push('is-past');
-      const interactive = opts.editable || (entry && (entry.type || entry.note));
+      const interactive = opts.editable || mark || (entry && (entry.type || entry.note));
       cells += interactive
         ? `<button type="button" class="${cls.join(' ')}" data-key="${key}" aria-label="${esc(label)}">${d}</button>`
         : `<span class="${cls.join(' ')}">${d}</span>`;

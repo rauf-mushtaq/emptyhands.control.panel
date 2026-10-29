@@ -168,6 +168,13 @@ service cloud.firestore {
       allow delete: if isCoach();
     }
 
+    // Days a register was taken (no names): any accepted student can see them, to mark days they missed.
+    match /registerDays/{date} {
+      allow read: if isCoach() || isStudent();
+      allow write: if isCoach() && request.resource.data.keys().hasOnly(['date']) && request.resource.data.date == date;
+      allow delete: if isCoach();
+    }
+
     // Medals: Sensei award them to students; each student reads their own.
     match /awards/{id} {
       allow read: if isCoach() || (signedIn() && resource.data.uid == request.auth.uid);
