@@ -4,7 +4,7 @@ import { webPushReady, webPushToken } from './webpush.js';
 import {
   $, $$, esc, GRADES, DISCIPLINES, DOJOS, AUDIENCES, renderYear, legendHTML, loadCalendar, calendarYears,
   noticeIsFor, homeworkIsFor, DEFAULT_FEES, FEE_GROUPS, FEE_LEVELS, paypalLink, longDate,
-  TYPES, todayKey, whenText, monthKey, monthName, isMonthly, monthlyFeeFor, money, PAY_METHODS, shortDate, timeAgo, keyOf, download, toast, busy, messageHTML, wireEdits, editing, licenceHTML, licenceFromForm, MEDALS, MEDAL_REASONS, medalHTML,
+  TYPES, todayKey, whenText, monthKey, monthName, isMonthly, monthlyFeeFor, money, PAY_METHODS, shortDate, timeAgo, keyOf, download, toast, busy, messageHTML, wireEdits, editing, licenceHTML, licenceFromForm, senseiKey, threadId, threadParts, senseiList, MEDALS, MEDAL_REASONS, medalHTML,
 } from './common.js';
 
 let api;
@@ -147,7 +147,10 @@ async function onAuth(user) {
   state.stops.push(api.watchHomework(list => { state.homework = list; drawHomeworkAdmin(); }));
   state.stops.push(api.watchNotifications(list => { state.notices = list; drawSent(); }));
   state.stops.push(api.watchRequests(onRequests));
-  state.stops.push(api.watchChats(list => { state.chats = list; drawChatList(); drawMenuCount(); }));
+  state.myKey = senseiKey(user.email);
+  state.isHead = OWNER_EMAILS.map(e => e.toLowerCase()).includes(user.email);
+  state.stops.push(api.watchChats(list => { state.chats = list; drawChatList(); drawMenuCount(); }, state.isHead ? null : state.myKey));
+  loadSenseis();
   await loadStudents();
   await loadYear(ed.year);
   const start = location.hash.slice(1);
@@ -217,7 +220,9 @@ $('#coach-alerts').addEventListener('click', async () => {
 });
 
 // ---- EmptyHands chats: private chat with each student's family ----
-const unreadChat = c => c && c.lastFrom === 'student' && (c.lastAt || 0) > (c.coachReadAt || 0);
+// A chat is mine if it's shared with every Sensei or just with me (the head Sensei can also read the rest).
+const myChat = tid => ['all', state.myKey].includes(threadParts(tid).key);
+const unreadChat = c => c && myChat(c.id) && c.lastFrom === 'student' && (c.lastAt || 0) > (c.coachReadAt || 0);
 // How many of a student's messages are unread (chats from before the count existed show as 1).
 const unreadCount = c => (unreadChat(c) ? Math.max(c.coachUnread || 0, 1) : 0);
 function drawMenuCount() {
@@ -510,15 +515,26 @@ $('#form-homework').addEventListener('submit', async e => {
 function drawChatList() {
   const q = $('#chat-search').value.trim().toLowerCase();
   const chats = Object.fromEntries(state.chats.map(c => [c.id, c]));
-  const people = state.students.filter(s => s.role === 'student')
-    .filter(s => !q || [s.name, s.guardian, s.email].some(v => (v || '').toLowerCase().includes(q)))
-    .map(s => ({ ...s, chat: chats[s.id] }))
-    .sort((a, b) => ((b.chat && b.chat.lastAt) || 0) - ((a.chat && a.chat.lastAt) || 0) || (a.name || '').localeCompare(b.name || ''));
-  $('#chat-list').innerHTML = people.length ? people.map(p => `
-    <li><button type="button" class="chat-item${unreadChat(p.chat) ? ' is-unread' : ''}${state.open === p.id ? ' is-open' : ''}" data-chat="${esc(p.id)}">
-      <b>${esc(p.name)}${unreadChat(p.chat) ? ` <span class="unread-n">${unreadCount(p.chat)}</span>` : ''}</b>${p.chat ? `<time>${timeAgo(p.chat.lastAt)}</time>` : ''}
-      <small>${p.chat ? (p.chat.lastFrom === 'coach' ? 'You: ' : '') + esc(p.chat.lastText) : esc(p.guardian ? 'Parent: ' + p.guardian : 'No messages yet')}</small>
+  const students = state.students.filter(s => s.role === 'student')
+    .filter(s => !q || [s.name, s.guardian, s.email].some(v => (v || '').toLowerCase().includes(q)));
+  // Every student's shared chat, plus any private chats (with me, or with others for the head Sensei).
+  const rows = students.flatMap(s => [
+    { tid: s.id, s, chat: chats[s.id] },
+    ...state.chats.filter(c => c.id.startsWith(s.id + '~')).map(c => ({ tid: c.id, s, chat: c })),
+  ]).sort((a, b) => ((b.chat && b.chat.lastAt) || 0) - ((a.chat && a.chat.lastAt) || 0) || (a.s.name || '').localeCompare(b.s.name || ''));
+  $('#chat-list').innerHTML = rows.length ? rows.map(({ tid, s, chat }) => `
+    <li><button type="button" class="chat-item${unreadChat(chat) ? ' is-unread' : ''}${state.open === tid ? ' is-open' : ''}" data-chat="${esc(tid)}">
+      <b>${esc(s.name)}${unreadChat(chat) ? ` <span class="unread-n">${unreadCount(chat)}</span>` : ''} <span class="thread-tag">${esc(threadLabel(tid))}</span></b>${chat ? `<time>${timeAgo(chat.lastAt)}</time>` : ''}
+      <small>${chat ? (chat.lastFrom === 'coach' ? 'Sensei: ' : '') + esc(chat.lastText) : esc(s.guardian ? 'Parent: ' + s.guardian : 'No messages yet')}</small>
     </button></li>`).join('') : '<li class="muted fine">No accepted students yet.</li>';
+}
+// "All Sensei", "Just you" or (head Sensei viewing) "Just <name>".
+function threadLabel(tid) {
+  const { key } = threadParts(tid);
+  if (key === 'all') return 'All Sensei';
+  if (key === state.myKey) return 'Just you';
+  const s = (state.senseis || []).find(x => x.key === key);
+  return 'Just ' + (s ? s.name : 'another Sensei');
 }
 $('#chat-search').addEventListener('input', drawChatList);
 $('#chat-list').addEventListener('click', e => {
@@ -527,17 +543,23 @@ $('#chat-list').addEventListener('click', e => {
 });
 $('#chat-back').addEventListener('click', closeChat);
 
-function openChat(uid) {
+function openChat(tid) {
   closeChat();
+  const uid = threadParts(tid).student;
   const s = state.students.find(x => x.id === uid);
-  state.open = uid;
+  state.open = tid;
   $('#chat-name').textContent = s ? s.name : 'Student';
   $('#chat-sub').innerHTML = s ? [s.guardian && 'Parent: ' + esc(s.guardian), (s.disciplines || []).map(d => DISCIPLINES[d]).join(', '), DOJOS[s.dojo], GRADES[s.grade]].filter(Boolean).join(' · ') : '';
   $('#chat-empty').hidden = true;
   $('#chat-open').hidden = false;
   fadeIn($('#chat-open'));
   $('#menu-layout').classList.add('is-open');
-  state.stopThread = api.watchThread(uid, list => { state.thread = list; drawThread(); markOpenRead(); });
+  state.stopThread = api.watchThread(tid, list => { state.thread = list; drawThread(); markOpenRead(); });
+  drawThreadPick();
+  // The head Sensei can read other Sensei's private chats but not reply in them.
+  const canSend = myChat(tid);
+  $('#form-reply').hidden = !canSend;
+  $('#chat-readonly').hidden = canSend;
   drawChatList();
   $('#reply-text').focus();
 }
@@ -562,9 +584,21 @@ function drawThread() {
     : '<p class="muted fine center">No messages yet. Say hello — the student and their family will see it in their EmptyHands chats.</p>';
   if (!editing.id) feed.scrollTop = feed.scrollHeight;
 }
+// Switch between the shared chat and the private one with this student.
+function drawThreadPick() {
+  const uid = threadParts(state.open).student;
+  const opts = [threadId(uid, 'all'), threadId(uid, state.myKey)];
+  if (opts.includes(state.open)) {
+    $('#thread-pick').innerHTML = opts.map(t => `<button type="button" class="chip" role="tab" aria-selected="${t === state.open}" data-thread="${esc(t)}">${t === opts[0] ? 'All Sensei' : 'Just you'}</button>`).join('');
+  } else $('#thread-pick').innerHTML = `<span class="chip" aria-selected="true">${esc(threadLabel(state.open))} · view only</span>`;
+}
+$('#thread-pick').addEventListener('click', e => {
+  const b = e.target.closest('[data-thread]');
+  if (b && b.dataset.thread !== state.open) openChat(b.dataset.thread);
+});
 function markOpenRead() {
   const c = state.chats.find(x => x.id === state.open);
-  if (state.view === 'menu' && !document.hidden && unreadChat(c)) api.markChatRead(state.open, 'coach').catch(console.warn);
+  if (state.view === 'menu' && !document.hidden && unreadChat(c) && myChat(state.open)) api.markChatRead(state.open, 'coach').catch(console.warn);
 }
 document.addEventListener('visibilitychange', () => {
   if (state.open) markOpenRead();
@@ -580,7 +614,7 @@ $('#form-reply').addEventListener('submit', async e => {
   const text = replyText.value.trim();
   if (!text || !state.open) return;
   const author = $('#reply-from').value.trim() || 'Sensei';
-  const s = state.students.find(x => x.id === state.open);
+  const s = state.students.find(x => x.id === threadParts(state.open).student);
   await busy(e.target.querySelector('[type=submit]'), async () => {
     try {
       await api.sendMessage(state.open, s ? s.name : '', { text, from: 'coach', author, uid: state.user.uid });
@@ -690,7 +724,7 @@ $('#student-rows').addEventListener('change', async e => {
     s.grade = sel.value;
     toast(`${s.name} is now ${GRADES[sel.value]}`);
     drawReach(); drawHomeworkAdmin();
-    if (state.open === s.id) openChat(s.id);
+    if (state.open && threadParts(state.open).student === s.id) openChat(state.open);
   } catch (err) { sel.value = before; toast(errorText(err), 'bad'); }
   sel.disabled = false;
 });
@@ -976,6 +1010,7 @@ $('#award-list').addEventListener('click', async e => {
 $('#menu-open').addEventListener('click', () => $('#side-menu').showModal());
 document.addEventListener('click', e => { if (e.target.closest('[data-open-menu]')) $('#side-menu').showModal(); });
 $('#menu-close').addEventListener('click', () => $('#side-menu').close());
+$('#side-signout').addEventListener('click', () => { $('#side-menu').close(); $('#signout').click(); });
 $('#side-menu').addEventListener('click', e => { if (e.target === $('#side-menu') || e.target.closest('.side-site')) $('#side-menu').close(); });
 
 function nextClassDay() {
@@ -1195,4 +1230,26 @@ $('#regd-edit').addEventListener('click', async () => {
   if (key.slice(0, 7) !== reg.month) pickRegMonth(key.slice(0, 7));
   show('register'); // loads the register for that date
   history.replaceState(null, '', '#register');
+});
+
+// ---- Sensei names (shown to students when they choose who to message) ----
+async function loadSenseis() {
+  const doc = await api.getCoachSettings().catch(() => ({}));
+  state.senseis = senseiList(OWNER_EMAILS, doc);
+  const mine = (doc.names || {})[state.myKey];
+  $('#form-myname [name=name]').value = mine || savedName();
+  // First time: use the name this Sensei already signs messages with.
+  if (!mine && savedName()) api.saveSenseiName(state.myKey, savedName()).catch(console.warn);
+  drawChatList();
+}
+$('#form-myname').addEventListener('submit', async e => {
+  e.preventDefault();
+  const name = $('[name=name]', e.target).value.trim();
+  if (!name) return;
+  try {
+    await api.saveSenseiName(state.myKey, name);
+    try { localStorage.setItem(NAME_KEY, name); } catch { /* storage blocked */ }
+    toast('Saved. Students will see you as ' + name);
+    loadSenseis();
+  } catch (err) { toast(errorText(err), 'bad'); }
 });

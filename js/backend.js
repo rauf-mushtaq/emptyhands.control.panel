@@ -1,6 +1,7 @@
 // Data layer. Uses Firebase (Auth + Firestore) when js/config.js has a config,
 // otherwise a demo store in localStorage with the same interface.
 import { firebaseConfig, OWNER_EMAILS } from './config.js';
+import { threadParts } from './common.js';
 
 export const DEMO = !firebaseConfig.apiKey;
 const OWNERS = OWNER_EMAILS.map(e => e.trim().toLowerCase());
@@ -78,18 +79,23 @@ async function firebaseBackend() {
 
     // EmptyHands menu: one private thread per student, shared by all coaches.
     // chats/{uid} holds a summary (for the coach's list and unread counts); messages live under it.
-    watchChats: cb => F.onSnapshot(F.query(F.collection(db, 'chats'), F.orderBy('lastAt', 'desc'), F.limit(500)),
-      snap => cb(rows(snap)), err => console.error(err)),
+    // key: only the shared chats and this Sensei's private ones (the head Sensei passes null for all).
+    watchChats: (cb, key) => F.onSnapshot(key
+      ? F.query(F.collection(db, 'chats'), F.where('sensei', 'in', ['all', key]), F.limit(500))
+      : F.query(F.collection(db, 'chats'), F.orderBy('lastAt', 'desc'), F.limit(500)),
+      snap => cb(rows(snap).sort((a, b) => (b.lastAt || 0) - (a.lastAt || 0))), err => console.error(err)),
     watchChat: (uid, cb) => F.onSnapshot(ref('chats', uid), s => cb(s.exists() ? s.data() : null), err => console.error(err)),
     watchThread: (uid, cb) => F.onSnapshot(
       F.query(F.collection(db, 'chats', uid, 'messages'), F.orderBy('createdAt'), F.limitToLast(300)),
       snap => cb(rows(snap).map(m => ({ ...m, createdAt: millis(m.createdAt) }))),
       err => console.error(err)),
-    sendMessage: async (uid, studentName, m) => {
+    // tid is a thread id (see threadId() in common.js): the shared chat or one with a single Sensei.
+    sendMessage: async (tid, studentName, m) => {
       const now = Date.now();
-      await F.addDoc(F.collection(db, 'chats', uid, 'messages'), { ...m, createdAt: F.serverTimestamp() });
+      const { student, key } = threadParts(tid);
+      await F.addDoc(F.collection(db, 'chats', tid, 'messages'), { ...m, createdAt: F.serverTimestamp() });
       // coachUnread counts the student's messages Sensei hasn't read yet (for the panel's badge).
-      await F.setDoc(ref('chats', uid), { name: studentName, lastAt: now, lastFrom: m.from, lastText: m.text.slice(0, 140), [m.from + 'ReadAt']: now,
+      await F.setDoc(ref('chats', tid), { name: studentName, sensei: key, student, lastAt: now, lastFrom: m.from, lastText: m.text.slice(0, 140), [m.from + 'ReadAt']: now,
         ...(m.from === 'student' ? { coachUnread: F.increment(1) } : {}) }, { merge: true });
     },
     markChatRead: (uid, who) => F.setDoc(ref('chats', uid), { [who + 'ReadAt']: Date.now(), ...(who === 'coach' ? { coachUnread: 0 } : {}) }, { merge: true }),
@@ -175,7 +181,9 @@ async function firebaseBackend() {
     saveLicence: (uid, data) => F.setDoc(ref('licences', uid), { ...data, updatedAt: Date.now() }),
     watchLicence: (uid, cb) => F.onSnapshot(ref('licences', uid), s => cb(s.exists() ? s.data() : null), () => cb(null)),
 
-    saveCoaches: emails => F.setDoc(ref('settings', 'coaches'), { emails }),
+    saveCoaches: emails => F.setDoc(ref('settings', 'coaches'), { emails }, { merge: true }),
+    getCoachSettings: async () => { const s = await F.getDoc(ref('settings', 'coaches')); return s.exists() ? s.data() : {}; },
+    saveSenseiName: (key, name) => F.setDoc(ref('settings', 'coaches'), { names: { [key]: name } }, { merge: true }),
     getPayments: async () => { const s = await F.getDoc(ref('settings', 'payments')); return s.exists() ? s.data() : null; },
     // Payment records: written by Sensei (cash etc.) or the paypalIpn function; students read their own.
     watchMyPayments: (uid, cb) => F.onSnapshot(F.query(F.collection(db, 'payments'), F.where('uid', '==', uid)),
@@ -269,14 +277,14 @@ function demoBackend() {
     watchProfile: (uid, cb) => watch('users', () => users.all()[uid] || null, cb),
     watchRequests: cb => watch('users', () => Object.entries(users.all()).map(([id, u]) => ({ id, ...u })).filter(u => u.role === 'pending'), cb),
 
-    watchChats: cb => watch('chats', () => Object.entries(chats.all()).map(([id, c]) => ({ id, ...c })).sort((a, b) => b.lastAt - a.lastAt), cb),
+    watchChats: (cb, key) => watch('chats', () => Object.entries(chats.all()).map(([id, c]) => ({ id, ...c })).filter(c => !key || ['all', key].includes(threadParts(c.id).key)).sort((a, b) => b.lastAt - a.lastAt), cb),
     watchChat: (uid, cb) => watch('chats', () => chats.all()[uid] || null, cb),
     watchThread: (uid, cb) => watch('msgs:' + uid, () => load('msgs:' + uid, []), cb),
     sendMessage: async (uid, studentName, m) => {
       const now = Date.now();
       save('msgs:' + uid, [...load('msgs:' + uid, []), { ...m, id: 'm' + now.toString(36) + Math.random().toString(36).slice(2, 5), createdAt: now }]);
       const c = chats.all()[uid] || {};
-      chats.put(uid, { ...c, name: studentName, lastAt: now, lastFrom: m.from, lastText: m.text.slice(0, 140), [m.from + 'ReadAt']: now,
+      chats.put(uid, { ...c, name: studentName, sensei: threadParts(uid).key, student: threadParts(uid).student, lastAt: now, lastFrom: m.from, lastText: m.text.slice(0, 140), [m.from + 'ReadAt']: now,
         ...(m.from === 'student' ? { coachUnread: (c.coachUnread || 0) + 1 } : {}) });
     },
     markChatRead: async (uid, who) => chats.put(uid, { ...(chats.all()[uid] || {}), [who + 'ReadAt']: Date.now(), ...(who === 'coach' ? { coachUnread: 0 } : {}) }),
@@ -308,6 +316,8 @@ function demoBackend() {
     listCalendarYears: async () => Object.keys(cals.all()).map(Number),
 
     getCoaches: async () => load('coaches', []),
+    getCoachSettings: async () => ({ emails: load('coaches', []), names: load('senseiNames', {}) }),
+    saveSenseiName: async (key, name) => store('senseiNames', { ...load('senseiNames', {}), [key]: name }),
     getAttendance: async date => load('att', {})[date] || null,
     saveAttendance: async (date, present, by) => { const t = load('att', {}); t[date] = { id: date, date, month: date.slice(0, 7), present, by, updatedAt: Date.now() }; save('att', t); },
     watchRegisterDays: (year, cb) => watch('att', () => Object.keys(load('att', {})).filter(d => d.startsWith(year + '-')), cb),

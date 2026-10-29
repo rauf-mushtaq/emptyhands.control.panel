@@ -24,6 +24,18 @@ export const GRADES = {
   brown2: 'Brown 2 stripe belt',
   dan: 'Black belt',
 };
+// Private chats: chats/{studentUid} is shared with every Sensei; chats/{studentUid}~{key} is with one
+// Sensei, where key is their email with anything but a-z and 0-9 turned into _ (as in the rules).
+export const senseiKey = email => String(email || '').toLowerCase().replace(/[^a-z0-9]/g, '_');
+export const threadId = (uid, key) => (key && key !== 'all' ? `${uid}~${key}` : uid);
+export const threadParts = tid => { const [student, key] = String(tid).split('~'); return { student, key: key || 'all' }; };
+// Every Sensei a student can message: the head Sensei and the Sensei list, with their names.
+export function senseiList(owners, doc) {
+  const names = (doc && doc.names) || {};
+  const emails = [...owners, ...((doc && doc.emails) || [])].map(e => e.toLowerCase());
+  return [...new Set(emails)].map(e => ({ key: senseiKey(e), name: names[senseiKey(e)] || (owners.includes(e) ? 'Head Sensei' : 'Sensei'), head: owners.includes(e) }));
+}
+
 // Medals Sensei can award, and some ready-made reasons (Sensei can write their own).
 export const MEDALS = {
   gold: { label: 'Gold medal', icon: '🥇' },

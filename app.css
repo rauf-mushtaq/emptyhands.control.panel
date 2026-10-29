@@ -720,3 +720,11 @@ body.on-home .app-top { display: none; }
 .regd > span:first-child { width: 24px; height: 24px; border-radius: 50%; display: grid; place-items: center; color: #fff; font-size: .8rem; flex: none; }
 .regd.is-here { background: #eef7f1; } .regd.is-here > span:first-child { background: #2e7d4f; }
 .regd.is-away { background: #fbefec; } .regd.is-away > span:first-child { background: var(--seal); }
+
+/* Private chats: choose all Sensei or one */
+.dm-pick, .thread-pick { flex: none; display: flex; gap: 8px; overflow-x: auto; scrollbar-width: none; margin: 0 0 10px; }
+.dm-pick .chip, .thread-pick .chip { flex: none; padding: 7px 14px; font-size: .88rem; font-weight: 700; position: relative; }
+.dm-pick .chip[aria-selected=true], .thread-pick .chip[aria-selected=true] { background: var(--seal); border-color: var(--seal); color: #fff; }
+.dm-pick .dot { position: absolute; top: 3px; right: 5px; width: 8px; height: 8px; border-radius: 50%; background: var(--seal); }
+.thread-tag { font-size: .7rem; font-weight: 700; color: var(--ink-3); background: var(--paper-2); border-radius: 99px; padding: 1px 7px; margin-left: 4px; vertical-align: middle; white-space: nowrap; }
+.chat-readonly { flex: none; padding: 10px 12px; background: var(--paper-2); border-radius: 10px; }

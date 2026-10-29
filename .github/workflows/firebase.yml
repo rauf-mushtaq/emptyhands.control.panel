@@ -48,3 +48,4 @@ jobs:
           deploy() { npx -y firebase-tools@14 deploy --only functions,firestore:rules --project emptyhands-student-portal --force --non-interactive; }
           # A first deploy can fail while Google finishes setting up new services; try again once after a pause.
           deploy || { echo "Retrying in 90 seconds…"; sleep 90; deploy; }
+          node functions/migrate.js

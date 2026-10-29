@@ -81,35 +81,48 @@ service cloud.firestore {
         && request.resource.data.editedAt == request.time;
     }
 
-    // EmptyHands menu: one private thread per accepted student, shared by all coaches.
-    function inThread(uid) { return isCoach() || (signedIn() && request.auth.uid == uid && isStudent()); }
+    // EmptyHands chats, private messages. chats/{studentUid} is shared by every Sensei;
+    // chats/{studentUid}~{key} is with one Sensei, key being their email with anything but a-z and
+    // 0-9 turned into _. The head Sensei (OWNERS) can read every chat, for safeguarding, but only
+    // writes in their own and the shared ones.
+    function myKey() { return email().replace('[^a-z0-9]', '_'); }
+    function isOwner() { return signedIn() && email() in OWNERS(); }
+    function tStudent(tid) { return tid.split('~')[0]; }
+    function tSensei(tid) { return tid.split('~').size() > 1 ? tid.split('~')[1] : 'all'; }
+    function coachSends(tid) { return isCoach() && (tSensei(tid) == 'all' || tSensei(tid) == myKey()); }
+    function coachReads(tid) { return coachSends(tid) || (isCoach() && isOwner()); }
+    function studentIn(tid) { return signedIn() && request.auth.uid == tStudent(tid) && isStudent(); }
     // The chat summary (for Sensei's list): students may only update their own side of it.
     // coachUnread (Sensei's unread count) can only go up by one per message.
-    function studentChatWrite(uid, keys, before) {
-      return signedIn() && request.auth.uid == uid && isStudent()
-        && keys.hasOnly(['name', 'lastAt', 'lastFrom', 'lastText', 'studentReadAt', 'coachUnread'])
+    function studentChatWrite(tid, keys, before) {
+      return studentIn(tid)
+        && keys.hasOnly(['name', 'lastAt', 'lastFrom', 'lastText', 'studentReadAt', 'coachUnread', 'sensei', 'student'])
         && request.resource.data.get('lastFrom', 'student') == 'student'
+        && request.resource.data.get('sensei', tSensei(tid)) == tSensei(tid)
+        && request.resource.data.get('student', tStudent(tid)) == tStudent(tid)
         && (!keys.hasAny(['coachUnread']) || request.resource.data.coachUnread == before + 1);
     }
-    match /chats/{uid} {
-      allow read: if inThread(uid);
-      allow write: if isCoach();
-      allow create: if studentChatWrite(uid, request.resource.data.keys(), 0);
-      allow update: if studentChatWrite(uid, request.resource.data.diff(resource.data).affectedKeys(), resource.data.get('coachUnread', 0));
+    match /chats/{tid} {
+      allow read: if coachReads(tid) || studentIn(tid)
+        || (isCoach() && resource.data.get('sensei', 'all') in ['all', myKey()]);
+      allow write: if coachReads(tid)
+        && request.resource.data.get('sensei', tSensei(tid)) == tSensei(tid)
+        && request.resource.data.get('student', tStudent(tid)) == tStudent(tid);
+      allow create: if studentChatWrite(tid, request.resource.data.keys(), 0);
+      allow update: if studentChatWrite(tid, request.resource.data.diff(resource.data).affectedKeys(), resource.data.get('coachUnread', 0));
       match /messages/{id} {
-        allow read: if inThread(uid);
+        allow read: if coachReads(tid) || studentIn(tid);
         allow create: if request.resource.data.text is string
           && request.resource.data.text.size() > 0 && request.resource.data.text.size() <= 2000
           && request.resource.data.get('author', '') is string && request.resource.data.get('author', '').size() <= 80
-          && ((isCoach() && request.resource.data.from == 'coach')
-            || (signedIn() && request.auth.uid == uid && isStudent() && request.resource.data.from == 'student'
+          && ((coachSends(tid) && request.resource.data.from == 'coach')
+            || (studentIn(tid) && request.resource.data.from == 'student'
                 && request.resource.data.uid == request.auth.uid));
         // Sensei edit Sensei messages; the student edits their own.
         allow update: if validEdit()
-          && ((isCoach() && resource.data.from == 'coach')
-            || (signedIn() && request.auth.uid == uid && isStudent() && resource.data.from == 'student'
-                && resource.data.uid == request.auth.uid));
-        allow delete: if isCoach();
+          && ((coachSends(tid) && resource.data.from == 'coach')
+            || (studentIn(tid) && resource.data.from == 'student' && resource.data.uid == request.auth.uid));
+        allow delete: if coachReads(tid);
       }
     }
 

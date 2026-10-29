@@ -68,13 +68,18 @@ exports.pushNotice = onDocumentCreated({ document: 'notifications/{id}', region:
   await pushToStudents((id, p) => isFor(n.audience, p), { title: n.title, body: n.body }, { noticeId: event.params.id }, 'menu');
 });
 
-// Sensei messaged a student privately (also the automatic fee reminders).
-exports.pushMessage = onDocumentCreated({ document: 'chats/{uid}/messages/{id}', region: 'europe-west2' }, async event => {
+// A private message: chats/{studentUid} is shared by every Sensei, chats/{studentUid}~{key} is with
+// one Sensei (key = their email with anything but a-z and 0-9 turned into _).
+const senseiKey = email => String(email || '').toLowerCase().replace(/[^a-z0-9]/g, '_');
+exports.pushMessage = onDocumentCreated({ document: 'chats/{tid}/messages/{id}', region: 'europe-west2' }, async event => {
   const m = event.data.data();
-  if (m.from === 'student') return pushToCoaches({ title: 'Message from ' + (m.author || 'a student'), body: m.text }, { chat: event.params.uid }, 'menu');
+  const [student, key] = event.params.tid.split('~');
+  if (m.from === 'student') {
+    return pushToCoaches({ title: `Message from ${m.author || 'a student'}${key ? ' (just to you)' : ''}`, body: m.text }, { chat: event.params.tid }, 'menu', key);
+  }
   if (m.from !== 'coach') return;
   const title = m.kind === 'fees' ? 'Fees reminder' : (m.author || 'Sensei') + ' sent you a message';
-  await pushToStudents(id => id === event.params.uid, { title, body: m.text }, { chat: event.params.uid }, m.kind === 'fees' ? 'pay' : 'menu');
+  await pushToStudents(id => id === student, { title, body: m.text }, { chat: event.params.tid }, m.kind === 'fees' ? 'pay' : 'menu');
 });
 
 // Sensei set homework.
@@ -100,12 +105,16 @@ exports.pushAward = onDocumentCreated({ document: 'awards/{id}', region: 'europe
 });
 
 // ---- Notifications for Sensei (coachDevices/{uid} holds each Sensei's devices) ----
-async function pushToCoaches(notification, data, view) {
+// key: only that Sensei (for a message sent just to them).
+async function pushToCoaches(notification, data, view, key) {
   const db = getFirestore();
   const [devices, list] = await Promise.all([db.collection('coachDevices').get(), db.doc('settings/coaches').get()]);
   const coaches = new Set([OWNER_EMAIL, ...((list.exists && list.data().emails) || [])].map(e => String(e).toLowerCase()));
   const targets = [];
-  devices.forEach(doc => { if (coaches.has(String(doc.data().email || '').toLowerCase())) (doc.data().pushTokens || []).forEach(t => targets.push([t, doc.ref])); });
+  devices.forEach(doc => {
+    const email = String(doc.data().email || '').toLowerCase();
+    if (coaches.has(email) && (!key || senseiKey(email) === key)) (doc.data().pushTokens || []).forEach(t => targets.push([t, doc.ref]));
+  });
   return send(targets, notification, data, COACH_URL + '#' + view);
 }
 

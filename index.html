@@ -43,6 +43,7 @@
     <button data-go="coaches">Sensei</button>
   </nav>
   <a class="side-site" href="https://rauf-mushtaq.github.io/emptyhands/" target="_blank" rel="noopener">EmptyHands website</a>
+  <button type="button" class="btn btn--ghost btn--block" id="side-signout">Sign out</button>
 </dialog>
 
 <div class="loading" id="loading"><span class="spinner"></span></div>
@@ -154,7 +155,9 @@
             <button class="linkish chat-back" id="chat-back" type="button">← All students</button>
             <div><h2 id="chat-name"></h2><p class="muted fine" id="chat-sub"></p></div>
           </header>
+          <div class="chips thread-pick" id="thread-pick" role="tablist" aria-label="Which conversation"></div>
           <div class="chat-feed chat-feed--scroll" id="chat-feed" aria-live="polite"></div>
+          <p class="muted fine chat-readonly" id="chat-readonly" hidden>This is a private chat between the student and another Sensei. As head Sensei you can read it, but only they can reply.</p>
           <form class="chat-compose" id="form-reply" novalidate>
             <div class="chat-row">
               <label class="sr-only" for="reply-text">Message</label>
@@ -387,6 +390,11 @@
         <p class="muted fine">Set in <code>js/config.js</code> (in both repositories) and <code>firebase/firestore.rules</code>. They can always sign in here.</p>
         <ul class="plain" id="owners"></ul>
       </div>
+      <form class="card stack" id="form-myname">
+        <h2>Your name for students</h2>
+        <p class="muted fine">Students see this name when they choose who to message privately, and on your messages.</p>
+        <div class="inline-form"><input name="name" maxlength="60" placeholder="e.g. Azeem Sensei" aria-label="Your name" required><button class="btn btn--sm" type="submit">Save</button></div>
+      </form>
       <div class="card stack" id="notify-card">
         <h2>Notifications on this device</h2>
         <p class="muted fine">Get a notification when a student messages Sensei, someone asks to join, or a PayPal payment comes in.</p>
