@@ -49,6 +49,21 @@ jobs:
           # A first deploy can fail while Google finishes setting up new services; try again once after a pause.
           deploy || { echo "Retrying in 90 seconds…"; sleep 90; deploy; }
           node functions/migrate.js
+      - name: Let sign-in work on the app's own addresses
+        if: env.HAS_KEY == 'true'
+        run: |
+          # Adds app.emptyhands.co.uk and sensei.emptyhands.co.uk to Firebase Authentication's authorised domains.
+          token=$(gcloud auth print-access-token)
+          api=https://identitytoolkit.googleapis.com/admin/v2/projects/emptyhands-student-portal/config
+          cfg=$(curl -s -H "Authorization: Bearer $token" -H "X-Goog-User-Project: emptyhands-student-portal" "$api")
+          if echo "$cfg" | jq -e '.authorizedDomains' > /dev/null; then
+            domains=$(echo "$cfg" | jq -c '(.authorizedDomains + ["app.emptyhands.co.uk", "sensei.emptyhands.co.uk"]) | unique')
+            curl -s -o /dev/null -w "Authorised domains updated (%{http_code})\n" -X PATCH -H "Authorization: Bearer $token" -H "X-Goog-User-Project: emptyhands-student-portal" \
+              -H "Content-Type: application/json" "$api?updateMask=authorizedDomains" -d "{\"authorizedDomains\": $domains}"
+            echo "$domains"
+          else
+            echo "::warning::Couldn't read Firebase Authentication's settings to add the app's addresses."
+          fi
       - name: Daily database backups (kept for 7 days)
         if: env.HAS_KEY == 'true'
         run: |

@@ -26,8 +26,8 @@ function isFor(audience, p) {
 const GONE = ['messaging/registration-token-not-registered', 'messaging/invalid-registration-token', 'messaging/invalid-argument'];
 const OWNER_EMAIL = 'info@emptyhands.co.uk'; // keep in line with OWNERS in firestore.rules
 const REGION = 'europe-west2';
-const STUDENT_URL = 'https://rauf-mushtaq.github.io/emptyhands.student/';
-const COACH_URL = 'https://rauf-mushtaq.github.io/emptyhands.control.panel/';
+const STUDENT_URL = 'https://app.emptyhands.co.uk/';
+const COACH_URL = 'https://sensei.emptyhands.co.uk/';
 // How each notification is shown: Android/iPhone apps, and web push for the website / home-screen apps.
 const deliver = link => ({
   android: { priority: 'high', notification: { color: '#A8342A', icon: 'ic_stat_notify' } },

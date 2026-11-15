@@ -2,7 +2,7 @@
 
 The control panel for EmptyHands coaches: send notices to students, see who's registered, and publish each year's dojo calendar.
 
-**Live at <https://rauf-mushtaq.github.io/emptyhands.control.panel/>**. The student side is in [emptyhands.student](https://github.com/rauf-mushtaq/emptyhands.student) (<https://rauf-mushtaq.github.io/emptyhands.student/>). Both use the same Firebase project.
+**Live at <https://sensei.emptyhands.co.uk/>**. The student side is in [emptyhands.student](https://github.com/rauf-mushtaq/emptyhands.student) (<https://app.emptyhands.co.uk/>). Both use the same Firebase project.
 
 | Tab | What it does |
 | --- | --- |
@@ -24,7 +24,7 @@ In each repository: **Settings → Pages → Build and deployment → Deploy fro
 
 1. Go to <https://console.firebase.google.com>, **Add project**, name it e.g. `emptyhands`. Google Analytics isn't needed.
 2. **Build → Authentication → Get started → Email/Password → Enable → Save.**
-3. Still in Authentication, check that `rauf-mushtaq.github.io` is listed under **Settings → Authorised domains**, and add it if it isn't.
+3. Still in Authentication, check that `app.emptyhands.co.uk` and `sensei.emptyhands.co.uk` are listed under **Settings → Authorised domains** (the Deploy Firebase workflow adds them).
 4. **Build → Firestore Database → Create database.** Choose the `europe-west2 (London)` location and start in **production mode**.
 5. In Firestore, open the **Rules** tab, replace what's there with everything from `firebase/firestore.rules`, and press **Publish**.
 6. **Project settings (⚙) → General → Your apps → Web (`</>`)**. Register the app (no hosting needed) and copy the `firebaseConfig` values into `js/config.js` **in both repositories**.

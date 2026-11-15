@@ -19,8 +19,8 @@ export const OWNER_EMAILS = ['info@emptyhands.co.uk'];
 
 // 3. Where each part lives.
 export const SITE_URL = 'https://emptyhands.co.uk/';
-export const STUDENT_URL = 'https://rauf-mushtaq.github.io/emptyhands.student/';
-export const COACH_URL = 'https://rauf-mushtaq.github.io/emptyhands.control.panel/';
+export const STUDENT_URL = 'https://app.emptyhands.co.uk/';
+export const COACH_URL = 'https://sensei.emptyhands.co.uk/';
 
 // 4. Automatic PayPal tracking: when true, PayPal payments made from the student app are
 //    recorded against the student by the paypalIpn function (deployed by the control panel's

@@ -18,7 +18,7 @@ export const DEFAULT_TIMINGS = [
 export const CALENDAR_2026 = {
   year: 2026,
   timings: DEFAULT_TIMINGS,
-  pdf: 'https://rauf-mushtaq.github.io/emptyhands.student/assets/docs/EmptyHands-Dojo-Calendar-2026.pdf',
+  pdf: 'https://app.emptyhands.co.uk/assets/docs/EmptyHands-Dojo-Calendar-2026.pdf',
   days: {
     ...md(['01-08', '01-15', '01-22', '01-29', '02-05', '02-12', '02-19', '02-26', '03-05', '03-26',
       '04-09', '04-16', '04-23', '05-14', '05-21', '06-04', '06-11', '06-18', '06-25', '07-02',
