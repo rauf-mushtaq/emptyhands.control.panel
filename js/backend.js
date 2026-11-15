@@ -115,7 +115,7 @@ async function firebaseBackend() {
       await F.setDoc(ref('chats', tid), { name: studentName, sensei: key, student, lastAt: now, lastFrom: m.from, lastText: m.text.slice(0, 140), [m.from + 'ReadAt']: now,
         ...(m.from === 'student' ? { coachUnread: F.increment(1) } : {}) }, { merge: true });
     },
-    markChatRead: (uid, who) => F.setDoc(ref('chats', uid), { [who + 'ReadAt']: Date.now(), ...(who === 'coach' ? { coachUnread: 0 } : {}) }, { merge: true }),
+    markChatRead: (uid, who, at = Date.now()) => F.setDoc(ref('chats', uid), { [who + 'ReadAt']: at, ...(who === 'coach' ? { coachUnread: 0 } : {}) }, { merge: true }),
 
     // Class group chats and training journals (channels/group-karate, journal-karate, …).
     watchChannel: (ch, cb) => F.onSnapshot(
@@ -319,7 +319,7 @@ function demoBackend() {
       chats.put(uid, { ...c, name: studentName, sensei: threadParts(uid).key, student: threadParts(uid).student, lastAt: now, lastFrom: m.from, lastText: m.text.slice(0, 140), [m.from + 'ReadAt']: now,
         ...(m.from === 'student' ? { coachUnread: (c.coachUnread || 0) + 1 } : {}) });
     },
-    markChatRead: async (uid, who) => chats.put(uid, { ...(chats.all()[uid] || {}), [who + 'ReadAt']: Date.now(), ...(who === 'coach' ? { coachUnread: 0 } : {}) }),
+    markChatRead: async (uid, who, at = Date.now()) => chats.put(uid, { ...(chats.all()[uid] || {}), [who + 'ReadAt']: at, ...(who === 'coach' ? { coachUnread: 0 } : {}) }),
 
     watchChannel: (ch, cb) => watch('ch:' + ch, () => load('ch:' + ch, []), cb),
     postChannel: async (ch, m) => { const now = Date.now(); save('ch:' + ch, [...load('ch:' + ch, []), { ...m, id: 'c' + now.toString(36) + Math.random().toString(36).slice(2, 5), createdAt: now }]); },
