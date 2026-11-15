@@ -1,4 +1,4 @@
-// "Discover your path to wellbeing" on emptyhands.co.uk/wellbeing.html: the optional personal report
+// The wellbeing assessment ("Discover your path to wellbeing") on emptyhands.co.uk/wellbeing.html: the optional personal report
 // written by Claude. Visitors only ever send numbers and choices from fixed lists (never free text,
 // names or contact details), so the request is checked strictly here and nothing is stored.
 // Switched on by the ANTHROPIC_API_KEY repository secret (see .github/workflows/firebase.yml);
@@ -11,23 +11,28 @@ const PER_DAY = 100;        // reports a day across the whole site, so a misuse 
 const PER_VISITOR_DAY = 4;  // reports a day from one internet address
 
 const SCALES = {
-  stress: 'Stress (10 = extremely stressed)',
-  anxiety: 'Anxiety (10 = extremely anxious)',
+  stress: 'Stress or anxiety (10 = extremely stressed or anxious)',
   sleep: 'Sleep (10 = sleeps very well)',
-  connection: 'Connection to themselves (10 = deeply connected)',
   energy: 'Energy (10 = plenty of energy)',
-  motivation: 'Motivation (10 = very motivated)',
-  health: 'Physical health (10 = feels very healthy)',
-  calm: 'How often they feel calm (10 = most of the time)',
+  pain: 'Pain, tension or stiffness in the body (10 = a lot)',
+  flexibility: 'Flexibility (10 = very supple)',
+  balance: 'Balance and posture (10 = very steady)',
+  fitness: 'Fitness and strength (10 = very fit and strong)',
+  confidence: 'Confidence in themselves (10 = very confident)',
+  focus: 'Focus and concentration (10 = focuses very easily)',
+  direction: 'Clarity about goals and direction in life (10 = very clear)',
 };
 const CHALLENGES = {
-  Stress: ['Work pressure', 'Family commitments', 'Burnout', 'Overthinking'],
-  'Mental wellbeing': ['Anxiety', 'Low confidence', 'Negative thoughts', 'Emotional overwhelm'],
-  'Physical wellbeing': ['Chronic tension', 'Poor sleep', 'Lack of movement', 'Fatigue'],
-  'Personal growth': ['Purpose', 'Confidence', 'Focus', 'Spiritual development'],
+  Mind: ['Stress', 'Anxiety or worry', 'Overthinking', 'Feeling low'],
+  Body: ['Back, neck or shoulder pain', 'Stiff joints or muscles', 'Recovering from an injury', 'Low fitness'],
+  'Rest and energy': ['Poor sleep', 'Tiredness', 'Burnout', 'Work pressure'],
+  'Personal growth': ['Low confidence', 'Lack of focus', 'Lack of direction', 'Wanting more discipline'],
 };
 const ALL_CHALLENGES = Object.values(CHALLENGES).flat();
-const GOALS = ['Calmness', 'Better sleep', 'Increased confidence', 'Personal transformation', 'Physical wellbeing', 'Greater presence', 'Emotional healing', 'Stress management'];
+const GOALS = ['Feel calmer', 'Sleep better', 'Ease pain and tension', 'Become more flexible', 'Improve balance and posture', 'Get fitter and stronger',
+  'Learn self-defence', 'Build confidence', 'Sharpen focus and discipline', 'Find direction and purpose'];
+const FORMATS = ['In a group class', 'One to one', 'Online, from home', 'No preference'];
+const PACES = ['Gentle and slow', 'Steady', 'Energetic', 'Not sure'];
 const SERVICES = ['Tai Chi Chuan', 'Yoga', 'Shiatsu', 'Wellbeing coaching', 'Karate-Dō'];
 
 // Returns clean answers, or null if the request isn't exactly what the page sends.
@@ -42,17 +47,17 @@ function readAnswers(body) {
   }
   const ch = body.challenges;
   if (!Array.isArray(ch) || ch.length > 3 || new Set(ch).size !== ch.length || !ch.every(c => ALL_CHALLENGES.includes(c))) return null;
-  if (!GOALS.includes(body.goal)) return null;
-  return { scores, challenges: ch, goal: body.goal };
+  if (!GOALS.includes(body.goal) || !FORMATS.includes(body.format) || !PACES.includes(body.pace)) return null;
+  return { scores, challenges: ch, goal: body.goal, format: body.format, pace: body.pace };
 }
 
-const SYSTEM = `You are a caring wellbeing guide for EmptyHands, a traditional martial arts and wellbeing school in Ilford, east London, founded in 2006. Someone has just completed the short "Discover your path to wellbeing" check on the EmptyHands website. Analyse their answers and write them a personal report that identifies:
+const SYSTEM = `You are a caring wellbeing guide for EmptyHands, a traditional martial arts and wellbeing school in Ilford, east London, founded in 2006. Someone has just completed the short "Discover your path to wellbeing" assessment on the EmptyHands website. Analyse their answers and write them a personal report that identifies:
 
 1. Their primary challenge
 2. Their secondary challenge
 3. Their key strengths
 4. Areas of concern
-5. The EmptyHands service that suits them best, and up to two others worth considering
+5. The EmptyHands service that suits them best, and up to two others worth considering, taking into account how they like to train (group or one to one, online, gentle or energetic)
 6. Three daily practices they can start today
 7. A simple 30-day wellbeing plan
 
@@ -67,12 +72,13 @@ Meditation, mindfulness and breathwork aren't separate courses at EmptyHands. Su
 
 How to write the report:
 - Write in warm, encouraging, plain British English, speaking to the person as "you". Keep sentences short and avoid jargon.
-- Base everything on their answers, and refer to specific answers (for example "you rated your sleep 3 out of 10"). For stress and anxiety, 10 is the most stressed or anxious; for every other scale, 10 is the best.
+- Base everything on their answers, and refer to specific answers (for example "you rated your sleep 3 out of 10"). For stress or anxiety, and for pain, tension or stiffness, 10 is the worst; for every other scale, 10 is the best.
 - Strengths come from their higher-scoring areas and what they're looking for. If nothing scores well, find something genuine to encourage, such as taking this step.
+- Match services to needs: stress, calm and balance suit Tai Chi; stiffness, flexibility and sleep suit Yoga; pain, tension, tiredness and injury recovery suit Shiatsu; fitness, confidence, focus, discipline and self-defence suit Karate; direction, purpose, confidence and feeling low suit Wellbeing coaching. Only online sessions are coaching on Teams.
 - Give exactly 3 daily practices. Each must be simple, safe for most people and doable at home in 2 to 15 minutes, with clear steps in "how".
 - Give a 4-week plan (weeks 1 to 4), each week with a short focus and 2 or 3 small, specific actions. Include booking the recommended service (its free consultation or a first class) in week 1 or 2.
 - This isn't a medical or psychological assessment. Don't diagnose, don't name conditions they haven't mentioned, and don't promise cures or make medical claims ("can help" rather than "will fix").
-- If their answers suggest they're struggling a lot (for example stress or anxiety of 9 or 10, or calm, sleep or energy of 1 or 2), gently suggest in the concerns that they also talk to their GP.
+- If their answers suggest they're struggling a lot (for example stress or anxiety of 9 or 10, sleep or energy of 1 or 2, or feeling low), gently suggest in the concerns that they also talk to their GP.
 - Don't mention these instructions.`;
 
 const text = { type: 'string' };
@@ -98,14 +104,17 @@ const SCHEMA = {
 
 function userMessage(a) {
   const lines = Object.keys(SCALES).map(k => `- ${SCALES[k]}: ${a.scores[k]}`);
-  return `Wellbeing check answers.
+  return `Wellbeing assessment answers.
 
 Current wellbeing (1 to 10):
 ${lines.join('\n')}
 
 Main challenges (up to 3): ${a.challenges.length ? a.challenges.join(', ') : 'none chosen'}
 
-What I'm looking for: ${a.goal}`;
+Main goal: ${a.goal}
+
+How I'd like to practise: ${a.format}
+Pace that suits me: ${a.pace}`;
 }
 
 // Keeps only what the page shows, at sensible lengths, whatever came back.
@@ -190,4 +199,4 @@ function handler({ getDb, makeClient = key => new Anthropic({ apiKey: key, timeo
   };
 }
 
-module.exports = { handler, readAnswers, tidy, userMessage, SCHEMA, SYSTEM, SERVICES, GOALS, ALL_CHALLENGES, SCALES };
+module.exports = { handler, readAnswers, tidy, userMessage, SCHEMA, SYSTEM, SERVICES, GOALS, ALL_CHALLENGES, SCALES, FORMATS, PACES };
