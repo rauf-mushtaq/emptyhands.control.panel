@@ -1,4 +1,4 @@
-// Paying fees by card, Apple Pay or Google Pay in the student app, through Stripe Checkout.
+// Paying fees by card, Apple Pay, Google Pay or PayPal in the student app, through Stripe Checkout.
 // The money goes into the dojo's Stripe account, which pays it out to the dojo's bank account.
 // Switched on only when the repository secret STRIPE_SECRET_KEY exists (see firebase.yml); the
 // deploy then writes settings/cards { on: true } so the app shows the card buttons.
@@ -66,7 +66,7 @@ const oops = (status, message) => Object.assign(new Error(message), { status, ow
 const label = (fee, name) => (fee.name + (name ? ' — ' + name : '')).slice(0, 250);
 
 // Starts a Stripe Checkout for one fee. Returns the URL of Stripe's payment page.
-async function checkout({ db, stripe, uid, email, feeId, native }) {
+async function checkout({ db, stripe, uid, email, feeId, native, method = 'card' }) {
   const [userSnap, settingsSnap] = await Promise.all([db.doc('users/' + uid).get(), db.doc('settings/payments').get()]);
   if (!userSnap.exists) throw oops(403, 'Finish signing up in the app first.');
   const user = userSnap.data();
@@ -79,8 +79,8 @@ async function checkout({ db, stripe, uid, email, feeId, native }) {
   const back = native ? STUDENT_URL + 'paid.html' : STUDENT_URL;
   const session = await stripe('POST', 'checkout/sessions', {
     mode: 'payment',
-    // Cards only, which on Stripe's page includes Apple Pay and Google Pay (no Klarna and the like).
-    payment_method_types: ['card'],
+    // 'card' includes Apple Pay and Google Pay; 'paypal' goes straight to PayPal (no Klarna and the like).
+    payment_method_types: [method === 'paypal' ? 'paypal' : 'card'],
     submit_type: 'pay',
     locale: 'en-GB',
     line_items: [{ quantity: 1, price_data: { currency: 'gbp', unit_amount: amount, product_data: { name: label(fee, user.name) } } }],
@@ -106,7 +106,9 @@ async function record(db, s) {
   const amount = (Number(s.amount_total) || 0) / 100;
   const pi = s.payment_intent && typeof s.payment_intent === 'object' ? s.payment_intent : null;
   const charge = pi && pi.latest_charge && typeof pi.latest_charge === 'object' ? pi.latest_charge : null;
-  const wallet = charge && charge.payment_method_details && charge.payment_method_details.card && charge.payment_method_details.card.wallet;
+  const details = (charge && charge.payment_method_details) || {};
+  const wallet = details.card && details.card.wallet;
+  const viaPaypal = details.type === 'paypal' || (s.payment_method_types || []).join() === 'paypal';
   const who = s.customer_details || {};
   const payment = {
     uid: user ? uid : null, name: user ? user.name || '' : '',
@@ -114,7 +116,7 @@ async function record(db, s) {
     amount, month: /^\d{4}-\d{2}$/.test(md.month || '') ? md.month : londonMonth(new Date((s.created || 0) * 1000 || Date.now())),
     // Only counts as the monthly fee if it's a per-month fee paid in full.
     kind: fee && fee.per === 'month' && amount + 0.001 >= Number(fee.price) ? 'monthly' : 'other',
-    method: 'card', wallet: wallet && ['apple_pay', 'google_pay'].includes(wallet.type) ? wallet.type : '',
+    method: viaPaypal ? 'paypal' : 'card', wallet: !viaPaypal && wallet && ['apple_pay', 'google_pay'].includes(wallet.type) ? wallet.type : '',
     txn: (pi ? pi.id : typeof s.payment_intent === 'string' ? s.payment_intent : '') || s.id,
     payer: `${who.name || ''} ${who.email || ''}`.trim().slice(0, 160),
     at: Date.now(),
@@ -164,8 +166,18 @@ function handler({ getDb, getAuth, makeStripe = stripeClient }) {
         try { who = await getAuth().verifyIdToken(token); }
         catch { return res.status(401).json({ error: 'Please sign in again, then try once more.' }); }
         if (typeof body.fee !== 'string' || body.fee.length > 60) return res.status(400).json({ error: 'Choose a fee to pay.' });
-        const url = await checkout({ db, stripe, uid: who.uid, email: who.email, feeId: body.fee, native: body.native === true });
-        return res.json({ url });
+        const method = body.method === 'paypal' ? 'paypal' : 'card';
+        try {
+          const url = await checkout({ db, stripe, uid: who.uid, email: who.email, feeId: body.fee, native: body.native === true, method });
+          return res.json({ url });
+        } catch (err) {
+          // PayPal not (or no longer) connected in Stripe: the app uses the plain PayPal link instead.
+          if (method === 'paypal' && !err.own && err.status === 400) {
+            console.warn('cardPayments: PayPal through Stripe refused', err.message);
+            return res.status(409).json({ fallback: true, error: 'PayPal isn’t available right now.' });
+          }
+          throw err;
+        }
       }
       return res.status(400).json({ error: 'Unknown request.' });
     } catch (err) {
