@@ -52,4 +52,13 @@ initializeApp({ projectId: 'emptyhands-student-portal' });
     moved++;
   }
   console.log(`Old shared journal posts moved to class journals: ${moved} of ${oldJournal.size}`);
+
+  // 4. Card payments (cards.js): the student app shows card / Apple Pay buttons when settings/cards
+  //    says they're on. The deploy sets CARDS to live, test or off from the STRIPE_SECRET_KEY secret.
+  if (process.env.CARDS) {
+    const mode = ['live', 'test'].includes(process.env.CARDS) ? process.env.CARDS : 'off';
+    await db.doc('settings/cards').set({ on: mode !== 'off', test: mode === 'test', updatedAt: Date.now() });
+    const fees = ((await db.doc('settings/payments').get()).data() || {}).fees || [];
+    console.log(`Card payments: ${mode}. Fees saved in the Sensei panel: ${fees.length}${fees.length ? '' : ' (card payments need Sensei to press Save on the Payments page once)'}`);
+  }
 })().catch(err => { console.error(err); process.exit(1); });

@@ -1,4 +1,4 @@
-# Deploys the Cloud Functions (notifications, reminders, PayPal tracking) and the Firestore
+# Deploys the Cloud Functions (notifications, reminders, PayPal and card payments) and the Firestore
 # security rules to the emptyhands-student-portal Firebase project. Needs the repository secret
 # FIREBASE_SERVICE_ACCOUNT: the service account key (JSON) from Firebase console → Project settings
 # → Service accounts → Generate new private key (see README.md).
@@ -35,19 +35,34 @@ jobs:
           cache-dependency-path: firebase/functions/package-lock.json
       - if: env.HAS_KEY == 'true'
         run: npm --prefix functions ci
-      - name: Switch on AI wellbeing reports (if there's an Anthropic API key)
+      - name: Switch on AI wellbeing reports and card payments (if their keys exist)
         if: env.HAS_KEY == 'true'
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          STRIPE_SECRET_KEY: ${{ secrets.STRIPE_SECRET_KEY }}
         run: |
+          # Keys go to the functions' settings, never into the repository.
+          env_file=functions/.env.emptyhands-student-portal
+          : > "$env_file"
           # The wellbeing check on emptyhands.co.uk offers an AI-written report only when the
-          # repository secret ANTHROPIC_API_KEY exists. The key goes to the function's settings, never into the repository.
+          # repository secret ANTHROPIC_API_KEY exists.
           if [ -n "$ANTHROPIC_API_KEY" ]; then
-            printf 'ANTHROPIC_API_KEY=%s\n' "$ANTHROPIC_API_KEY" > functions/.env.emptyhands-student-portal
+            printf 'ANTHROPIC_API_KEY=%s\n' "$ANTHROPIC_API_KEY" >> "$env_file"
             echo "AI wellbeing reports: on"
           else
             echo "AI wellbeing reports: off (add the ANTHROPIC_API_KEY repository secret to switch them on)"
           fi
+          # Card, Apple Pay and Google Pay fees in the student app need the Stripe secret key
+          # (repository secret STRIPE_SECRET_KEY, from dashboard.stripe.com → Developers → API keys).
+          case "$STRIPE_SECRET_KEY" in
+            sk_live_*|rk_live_*) cards=live ;;
+            sk_test_*|rk_test_*) cards=test ;;
+            '') cards=off ;;
+            *) cards=off; echo "::warning::STRIPE_SECRET_KEY doesn't look like a Stripe secret key (sk_live_…), so card payments stay off." ;;
+          esac
+          if [ "$cards" != off ]; then printf 'STRIPE_SECRET_KEY=%s\n' "$STRIPE_SECRET_KEY" >> "$env_file"; fi
+          echo "CARDS=$cards" >> "$GITHUB_ENV"
+          echo "Card payments: $cards"
       - name: Deploy functions and rules
         if: env.HAS_KEY == 'true'
         env:
@@ -95,3 +110,4 @@ jobs:
           echo "paypalIpn answered $code"
           [ "$code" = 405 ] || echo "::warning::paypalIpn answered $code instead of 405, so PayPal payments may not be recorded."
           echo "wellbeingReport: $(curl -s https://europe-west2-emptyhands-student-portal.cloudfunctions.net/wellbeingReport)"
+          echo "cardPayments: $(curl -s https://europe-west2-emptyhands-student-portal.cloudfunctions.net/cardPayments)"

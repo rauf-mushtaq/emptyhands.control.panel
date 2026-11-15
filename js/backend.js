@@ -202,7 +202,11 @@ async function firebaseBackend() {
     getCoachSettings: async () => { const s = await F.getDoc(ref('settings', 'coaches')); return s.exists() ? s.data() : {}; },
     saveSenseiName: (key, name) => F.setDoc(ref('settings', 'coaches'), { names: { [key]: name } }, { merge: true }),
     getPayments: async () => { const s = await F.getDoc(ref('settings', 'payments')); return s.exists() ? s.data() : null; },
-    // Payment records: written by Sensei (cash etc.) or the paypalIpn function; students read their own.
+    // Whether card / Apple Pay payments are on (written by the deploy when there's a Stripe key).
+    getCards: async () => { const s = await F.getDoc(ref('settings', 'cards')); return s.exists() ? s.data() : null; },
+    // The signed-in user's token, so a Cloud Function can check who's asking.
+    idToken: () => auth.currentUser.getIdToken(),
+    // Payment records: written by Sensei (cash etc.) or the paypalIpn / cardPayments functions; students read their own.
     watchMyPayments: (uid, cb) => F.onSnapshot(F.query(F.collection(db, 'payments'), F.where('uid', '==', uid)),
       snap => cb(rows(snap).sort((a, b) => b.at - a.at)), err => console.error(err)),
     watchPaymentsForMonth: (month, cb) => F.onSnapshot(F.query(F.collection(db, 'payments'), F.where('month', '==', month)),
@@ -361,6 +365,8 @@ function demoBackend() {
     watchLicence: (uid, cb) => watch('lic:' + uid, () => load('lic:' + uid, null), cb),
     saveCoaches: async emails => store('coaches', emails),
     getPayments: async () => load('payments', null),
+    getCards: async () => load('cards', null),
+    idToken: async () => 'demo',
     watchMyPayments: (uid, cb) => watch('pmts', () => load('pmts', []).filter(p => p.uid === uid).sort((a, b) => b.at - a.at), cb),
     watchPaymentsForMonth: (month, cb) => watch('pmts', () => load('pmts', []).filter(p => p.month === month), cb),
     addPayment: async p => save('pmts', [...load('pmts', []), { ...p, id: 'p' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5), at: Date.now() }]),

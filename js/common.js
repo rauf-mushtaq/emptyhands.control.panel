@@ -236,7 +236,9 @@ export function paypalLink(paypal, fee, who, track, back) {
 // Fee tracking is by calendar month, e.g. '2026-10'.
 export const monthKey = (d = new Date()) => d.getFullYear() + '-' + pad(d.getMonth() + 1);
 export const monthName = key => { const [y, m] = key.split('-').map(Number); return new Date(y, m - 1, 1).toLocaleDateString('en-GB', { month: 'long', year: 'numeric' }); };
-export const PAY_METHODS = { paypal: 'PayPal', cash: 'Cash', bank: 'Bank transfer', other: 'Other' };
+export const PAY_METHODS = { paypal: 'PayPal', card: 'Card', cash: 'Cash', bank: 'Bank transfer', other: 'Other' };
+// How a payment was made, e.g. "Apple Pay" for a card payment made with Apple Pay.
+export const payMethod = x => ({ apple_pay: 'Apple Pay', google_pay: 'Google Pay' })[x.wallet] || PAY_METHODS[x.method] || '';
 // A payment counts towards the monthly fee if it's for a per-month fee, or marked by Sensei as monthly.
 export const isMonthly = pmt => pmt.kind === 'monthly';
 // Brown belt and above pay a monthly fee agreed with Sensei, who sets it per student

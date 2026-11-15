@@ -4,7 +4,7 @@ import { webPushReady, webPushToken } from './webpush.js';
 import {
   $, $$, esc, GRADES, DISCIPLINES, DOJOS, AUDIENCES, CLASS_CHATS, CLASS_JOURNALS, classChatName, renderYear, legendHTML, loadCalendar, calendarYears,
   noticeIsFor, homeworkIsFor, DEFAULT_FEES, FEE_GROUPS, FEE_LEVELS, paypalLink, longDate,
-  TYPES, todayKey, whenText, monthKey, monthName, isMonthly, monthlyFeeFor, onApplication, money, PAY_METHODS, shortDate, timeAgo, keyOf, download, toast, busy, messageHTML, wireEdits, editing, licenceHTML, licenceFromForm, senseiKey, threadId, threadParts, senseiList, MEDALS, MEDAL_REASONS, medalHTML,
+  TYPES, todayKey, whenText, monthKey, monthName, isMonthly, monthlyFeeFor, onApplication, money, PAY_METHODS, payMethod, shortDate, timeAgo, keyOf, download, toast, busy, messageHTML, wireEdits, editing, licenceHTML, licenceFromForm, senseiKey, threadId, threadParts, senseiList, MEDALS, MEDAL_REASONS, medalHTML,
 } from './common.js';
 
 let api;
@@ -340,17 +340,27 @@ $('#form-channel').addEventListener('submit', async e => {
   });
 });
 
-// ---- payments (PayPal) ----
+// ---- payments (card through Stripe, and PayPal) ----
 const pay = { fees: [], dirty: false };
 async function loadPayments() {
   if (pay.dirty) return;
   let s = null;
   try { s = await api.getPayments(); } catch (err) { toast(errorText(err), 'bad'); }
+  api.getCards().then(drawCards, () => drawCards(null));
   $('#paypal-account').value = (s && s.paypal) || '';
   $('#auto-remind').checked = !!(s && s.autoRemind);
   pay.fees = structuredClone((s && s.fees) || DEFAULT_FEES);
   drawFees();
   if (!pay.month) pickMonth(monthKey());
+}
+
+// Card, Apple Pay and Google Pay: switched on by the deploy when there's a Stripe key (see cards.js).
+function drawCards(c) {
+  $('#cards-status').innerHTML = c && c.on
+    ? `<h2>Card, Apple Pay and Google Pay <span class="tag tag--ok">On${c.test ? ' · test mode' : ''}</span></h2>
+      <p class="muted fine">Students can pay their fees by card, Apple Pay or Google Pay in the app. The money goes to the dojo’s Stripe account, which pays it into the dojo’s bank account. See every payment and payout at <a href="https://dashboard.stripe.com/payments" target="_blank" rel="noopener">dashboard.stripe.com</a>.${c.test ? ' <b>Test mode:</b> no real money is taken. Put the live secret key in the STRIPE_SECRET_KEY secret to take real payments.' : ''}</p>`
+    : `<h2>Card, Apple Pay and Google Pay <span class="tag">Off</span></h2>
+      <p class="muted fine">To let students pay by card, Apple Pay or Google Pay straight to the dojo’s bank account: open a free Stripe account at <a href="https://dashboard.stripe.com/register" target="_blank" rel="noopener">stripe.com</a> with the dojo’s bank details, then add its secret key (Developers → API keys) as the <b>STRIPE_SECRET_KEY</b> secret of the emptyhands.control.panel repository on GitHub and run <i>Deploy Firebase</i>. Until then, students pay with PayPal or at the dojo.</p>`;
 }
 
 // ---- who has paid ----
@@ -380,14 +390,14 @@ function drawPaid() {
     <td data-th="Student"><b>${esc(s.name)}</b>${s.guardian ? `<small>Parent: ${esc(s.guardian)}</small>` : ''}</td>
     <td data-th="Belt">${GRADES[s.grade] || '—'}${feeLine(s)}</td>
     <td data-th="Status">${s.feesExempt ? '<span class="tag">Exempt</span>'
-      : pmt ? `<span class="tag tag--ok">Paid</span> ${money(pmt.amount)} · ${PAY_METHODS[pmt.method] || ''} · ${new Date(pmt.at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}`
+      : pmt ? `<span class="tag tag--ok">Paid</span> ${money(pmt.amount)} · ${payMethod(pmt)} · ${new Date(pmt.at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}`
       : `<span class="tag tag--seal">Unpaid</span>${reminded(s) ? ` <small>reminded ${timeAgo(reminded(s))}</small>` : ''}`}</td>
     <td>${pmt ? `<button class="linkish" data-unpay="${esc(pmt.id)}">Undo</button>`
       : s.feesExempt ? `<button class="linkish" data-exempt="${esc(s.id)}">Not exempt</button>`
       : `<button class="linkish" data-markpaid="${esc(s.id)}">Mark paid</button> <button class="linkish" data-remind="${esc(s.id)}">Remind</button> <button class="linkish" data-exempt="${esc(s.id)}">Exempt</button>`}</td>
   </tr>`).join('') || '<tr><td colspan="4" class="muted">No accepted students yet.</td></tr>';
   const strays = (pay.list || []).filter(x => !x.uid || !state.students.some(s => s.id === x.uid));
-  $('#unmatched').innerHTML = strays.length ? `<h3>PayPal payments not linked to a student</h3><ul class="plain">${strays.map(x => `<li><span>${money(x.amount)} · ${esc(x.feeName || '')} · ${esc(x.payer || '')}</span><button class="linkish danger" data-unpay="${esc(x.id)}">Remove</button></li>`).join('')}</ul>` : '';
+  $('#unmatched').innerHTML = strays.length ? `<h3>Online payments not linked to a student</h3><ul class="plain">${strays.map(x => `<li><span>${money(x.amount)} · ${esc(x.feeName || '')} · ${esc(x.payer || '')}</span><button class="linkish danger" data-unpay="${esc(x.id)}">Remove</button></li>`).join('')}</ul>` : '';
 }
 // Brown belt and above: "£45 a month · Change", or "On application · Set fee".
 function feeLine(s) {

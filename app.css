@@ -502,6 +502,9 @@ a.fee-option:active { transform: scale(.98); }
 .fee-option-label { text-transform: uppercase; letter-spacing: .1em; font-size: .72rem; font-weight: 700; color: var(--bronze); }
 .fee-option > b { font-size: 1.5rem; font-family: var(--serif); }
 .fee-option .btn { margin-top: 10px; pointer-events: none; }
+.fee-option.has-pay .btn { pointer-events: auto; width: 100%; }
+.fee-paypal { justify-self: center; margin-top: 6px; padding: 4px 6px; font-size: .82rem; color: var(--ink-2); text-decoration: underline; text-underline-offset: 2px; }
+.fee-paypal b { color: #003087; }
 .fee-option.is-application { background: var(--paper-2); }
 .fee-option.is-application > b { font-size: 1.15rem; }
 @media (max-width: 360px) { .fee-options { grid-template-columns: 1fr; } }

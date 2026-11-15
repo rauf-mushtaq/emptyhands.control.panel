@@ -1,5 +1,5 @@
 // Push notifications to students (notices, homework, Sensei's messages, group chat posts, class
-// and fee reminders) and to Sensei (students' messages, join requests, PayPal payments), on the
+// and fee reminders) and to Sensei (students' messages, join requests, PayPal and card payments), on the
 // phone apps and, via web push, the website / home-screen apps. Deploy with `firebase deploy --only functions`
 // (see README.md). Needs the Firebase Blaze plan.
 const { onDocumentCreated, onDocumentDeleted } = require('firebase-functions/v2/firestore');
@@ -7,6 +7,7 @@ const { onRequest } = require('firebase-functions/v2/https');
 const { onSchedule } = require('firebase-functions/v2/scheduler');
 const { initializeApp } = require('firebase-admin/app');
 const { getFirestore, FieldValue } = require('firebase-admin/firestore');
+const { getAuth } = require('firebase-admin/auth');
 const { getMessaging } = require('firebase-admin/messaging');
 const { removeUserData } = require('./cleanup');
 
@@ -152,11 +153,12 @@ exports.cleanUpDeletedUser = onDocumentDeleted({ document: 'users/{uid}', region
   console.log('Removed data for a deleted account', JSON.stringify(done));
 });
 
-// A PayPal payment came in.
+// A PayPal or card payment came in.
+const PAID_BY = { paypal: 'PayPal', card: 'card', apple_pay: 'Apple Pay', google_pay: 'Google Pay' };
 exports.pushPayment = onDocumentCreated({ document: 'payments/{id}', region: 'europe-west2' }, async event => {
   const p = event.data.data();
-  if (p.method !== 'paypal') return;
-  await pushToCoaches({ title: 'Payment received', body: `${p.name || 'A student'} paid £${Number(p.amount || 0).toFixed(2)} by PayPal (${p.feeName || 'fees'}).` }, { payment: event.params.id }, 'payments');
+  if (p.method !== 'paypal' && p.method !== 'card') return;
+  await pushToCoaches({ title: 'Payment received', body: `${p.name || 'A student'} paid £${Number(p.amount || 0).toFixed(2)} by ${PAID_BY[p.wallet] || PAID_BY[p.method]} (${p.feeName || 'fees'}).` }, { payment: event.params.id }, 'payments');
 });
 
 // ---- Class reminders: 2 hours and 5 minutes before each class ----
@@ -264,6 +266,20 @@ exports.paypalIpn = onRequest({ region: REGION, invoker: 'public' }, async (req,
     at: Date.now(),
   }, { merge: true });
   res.status(200).end();
+});
+
+// Card, Apple Pay and Google Pay payments through Stripe Checkout (see cards.js). Students call it
+// from the app (and paid.html after paying in the phone apps); it checks their sign-in itself.
+const cards = require('./cards');
+exports.cardPayments = onRequest({
+  region: REGION, invoker: 'public', maxInstances: 5,
+  cors: ['https://app.emptyhands.co.uk', 'https://localhost', 'capacitor://localhost'],
+}, cards.handler({ getDb: getFirestore, getAuth }));
+// Records paid card checkouts that didn't come back to the app (the page was closed too soon).
+exports.cardSweep = onSchedule({ schedule: 'every 15 minutes', region: REGION }, async () => {
+  if (!process.env.STRIPE_SECRET_KEY) return;
+  const added = await cards.sweep(getFirestore(), cards.stripeClient(process.env.STRIPE_SECRET_KEY));
+  if (added) console.log(`Card payments recorded by the sweep: ${added}`);
 });
 
 // The optional AI-written report for the wellbeing check on emptyhands.co.uk (see wellbeing.js).

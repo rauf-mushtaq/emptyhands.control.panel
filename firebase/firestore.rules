@@ -173,7 +173,7 @@ service cloud.firestore {
       allow write: if isCoach();
     }
 
-    // Payment records: Sensei adds them (cash etc.) and the paypalIpn function adds PayPal ones.
+    // Payment records: Sensei adds them (cash etc.); the paypalIpn and cardPayments functions add online ones.
     // Students can read their own.
     match /payments/{id} {
       allow read: if isCoach() || (signedIn() && resource.data.uid == request.auth.uid);
@@ -185,6 +185,12 @@ service cloud.firestore {
     match /settings/payments {
       allow read: if signedIn();
       allow write: if isCoach();
+    }
+
+    // Whether card / Apple Pay payments are switched on: written by the deploy (see cards.js).
+    match /settings/cards {
+      allow read: if signedIn();
+      allow write: if false;
     }
 
     // Attendance register: Sensei mark who came; each student reads the days they attended.
