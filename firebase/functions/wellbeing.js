@@ -49,12 +49,12 @@ function readAnswers(body) {
     if (!Number.isInteger(s[k]) || s[k] < 1 || s[k] > 10) return null;
     scores[k] = s[k];
   }
-  const ch = body.challenges;
-  if (!Array.isArray(ch) || ch.length > 3 || new Set(ch).size !== ch.length || !ch.every(c => ALL_CHALLENGES.includes(c))) return null;
-  if (!GOALS.includes(body.goal) || !FORMATS.includes(body.format) || !PACES.includes(body.pace)) return null;
-  const ap = body.appeals;
-  if (!Array.isArray(ap) || new Set(ap).size !== ap.length || !ap.every(x => APPEALS.includes(x))) return null;
-  return { scores, challenges: ch, goal: body.goal, format: body.format, pace: body.pace, appeals: ap };
+  // Lists of choices: no repeats, only known answers, and at least one where an answer is required.
+  const list = (v, allowed, min) => (Array.isArray(v) && v.length >= min && new Set(v).size === v.length && v.every(x => allowed.includes(x)) ? v : null);
+  const challenges = list(body.challenges, ALL_CHALLENGES, 0), goals = list(body.goals, GOALS, 1);
+  const formats = list(body.formats, FORMATS, 1), paces = list(body.paces, PACES, 1), appeals = list(body.appeals, APPEALS, 0);
+  if (!challenges || !goals || !formats || !paces || !appeals) return null;
+  return { scores, challenges, goals, formats, paces, appeals };
 }
 
 const SYSTEM = `You are a caring wellbeing guide for EmptyHands, a traditional martial arts and wellbeing school in Ilford, east London, founded in 2006. Someone has just completed the short "Discover your path to wellbeing" assessment on the EmptyHands website. Analyse their answers and write them a personal report that identifies:
@@ -115,12 +115,12 @@ function userMessage(a) {
 Current wellbeing (1 to 10):
 ${lines.join('\n')}
 
-Main challenges (up to 3): ${a.challenges.length ? a.challenges.join(', ') : 'none chosen'}
+What I'd like help with: ${a.challenges.length ? a.challenges.join(', ') : 'nothing chosen'}
 
-Main goal: ${a.goal}
+My goals: ${a.goals.join(', ')}
 
-How I'd like to practise: ${a.format}
-Pace that suits me: ${a.pace}
+How I'd like to practise: ${a.formats.join(', ')}
+Pace that suits me: ${a.paces.join(', ')}
 What appeals to me: ${a.appeals.length ? a.appeals.join(', ') : 'nothing chosen'}`;
 }
 
