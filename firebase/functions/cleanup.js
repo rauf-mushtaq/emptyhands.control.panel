@@ -13,8 +13,8 @@ async function removeUserData(db, uid) {
   for (const ref of refs.values()) await db.recursiveDelete(ref);
   done.chats = refs.size;
 
-  // Group chat and training journal posts, medals, homework set just for them, their licence.
-  for (const ch of ['group', 'journal']) done.posts += await remove(db.collection(`channels/${ch}/messages`).where('uid', '==', uid));
+  // Group chat (whole dojo and each class) and training journal posts, medals, homework set just for them, their licence.
+  for (const ch of ['group', 'group-karate', 'group-taichi', 'group-yoga', 'journal']) done.posts += await remove(db.collection(`channels/${ch}/messages`).where('uid', '==', uid));
   done.awards = await remove(db.collection('awards').where('uid', '==', uid));
   done.homework = await remove(db.collection('homework').where('student', '==', uid));
   await db.doc('licences/' + uid).delete();

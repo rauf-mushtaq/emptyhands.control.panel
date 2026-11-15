@@ -97,6 +97,16 @@ exports.pushGroup = onDocumentCreated({ document: 'channels/group/messages/{id}'
   await pushToStudents(() => true, { title: (m.author || 'Sensei') + ' in the group chat', body: m.text }, { channel: 'group' }, 'menu');
 });
 
+// Sensei posted in a class group chat (channels/group-karate etc.): tell the students in that class.
+const CLASS_NAMES = { karate: 'Karate', taichi: 'Tai Chi', yoga: 'Yoga' };
+exports.pushClassGroup = onDocumentCreated({ document: 'channels/{ch}/messages/{id}', region: REGION }, async event => {
+  const cls = (event.params.ch.match(/^group-(karate|taichi|yoga)$/) || [])[1];
+  const m = event.data.data();
+  if (!cls || m.from !== 'coach') return;
+  await pushToStudents((id, p) => (p.disciplines || []).includes(cls),
+    { title: `${m.author || 'Sensei'} in the ${CLASS_NAMES[cls]} group chat`, body: m.text }, { channel: event.params.ch }, 'menu');
+});
+
 // Sensei awarded a medal.
 const MEDAL_ICONS = { gold: '🥇', silver: '🥈', bronze: '🥉', trophy: '🏆', star: '⭐' };
 exports.pushAward = onDocumentCreated({ document: 'awards/{id}', region: 'europe-west2' }, async event => {

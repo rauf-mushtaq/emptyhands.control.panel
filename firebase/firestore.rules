@@ -135,16 +135,23 @@ service cloud.firestore {
       }
     }
 
-    // Group chat and training journal: every accepted student and Sensei can read and post.
-    // Only Sensei can send notices (above). Authors can edit their messages; authors and Sensei can delete them.
+    // Group chats and training journal. 'group-karate', 'group-taichi' and 'group-yoga' are one
+    // group chat per class: students use the ones for the classes on their profile, Sensei all of
+    // them. 'journal' (and 'group', the old whole-dojo chat) are for every accepted student.
+    // Authors can edit their messages; authors and Sensei can delete them.
+    function canUseChannel(ch) {
+      return (ch in ['group', 'journal'] && (isStudent() || isCoach()))
+        || (ch in ['group-karate', 'group-taichi', 'group-yoga']
+            && (isCoach() || (isStudent() && ch.split('-')[1] in myAudiences())));
+    }
     match /channels/{ch}/messages/{id} {
-      allow read: if ch in ['group', 'journal'] && (isStudent() || isCoach());
-      allow create: if ch in ['group', 'journal']
+      allow read: if canUseChannel(ch);
+      allow create: if canUseChannel(ch)
         && request.resource.data.text is string
         && request.resource.data.text.size() > 0 && request.resource.data.text.size() <= 2000
         && ((isCoach() && request.resource.data.from == 'coach')
           || (isStudent() && request.resource.data.from == 'student' && request.resource.data.uid == request.auth.uid));
-      allow update: if ch in ['group', 'journal'] && validEdit()
+      allow update: if canUseChannel(ch) && validEdit()
         && ((isCoach() && resource.data.from == 'coach')
           || (isStudent() && resource.data.from == 'student' && resource.data.uid == request.auth.uid));
       allow delete: if isCoach() || (isStudent() && resource.data.uid == request.auth.uid);
