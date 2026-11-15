@@ -13,13 +13,16 @@ const PER_VISITOR_DAY = 4;  // reports a day from one internet address
 const SCALES = {
   stress: 'Stress or anxiety (10 = extremely stressed or anxious)',
   sleep: 'Sleep (10 = sleeps very well)',
+  focus: 'Focus and concentration (10 = focuses very easily)',
   energy: 'Energy (10 = plenty of energy)',
+  breathing: 'Breathing slowly and deeply (10 = very easily)',
   pain: 'Pain, tension or stiffness in the body (10 = a lot)',
   flexibility: 'Flexibility (10 = very supple)',
   balance: 'Balance and posture (10 = very steady)',
   fitness: 'Fitness and strength (10 = very fit and strong)',
   confidence: 'Confidence in themselves (10 = very confident)',
-  focus: 'Focus and concentration (10 = focuses very easily)',
+  safety: 'Confidence they could keep themselves safe (10 = very confident)',
+  selfcare: 'Making time to look after themselves (10 = every day)',
   direction: 'Clarity about goals and direction in life (10 = very clear)',
 };
 const CHALLENGES = {
@@ -33,6 +36,7 @@ const GOALS = ['Feel calmer', 'Sleep better', 'Ease pain and tension', 'Become m
   'Learn self-defence', 'Build confidence', 'Sharpen focus and discipline', 'Find direction and purpose'];
 const FORMATS = ['In a group class', 'One to one', 'Online, from home', 'No preference'];
 const PACES = ['Gentle and slow', 'Steady', 'Energetic', 'Not sure'];
+const APPEALS = ['Martial arts', 'Slow, flowing movement', 'Stretching and breathing', 'Hands-on therapy', 'Talking things through', 'Meditation'];
 const SERVICES = ['Tai Chi Chuan', 'Yoga', 'Shiatsu', 'Wellbeing coaching', 'Karate-Dō'];
 
 // Returns clean answers, or null if the request isn't exactly what the page sends.
@@ -48,7 +52,9 @@ function readAnswers(body) {
   const ch = body.challenges;
   if (!Array.isArray(ch) || ch.length > 3 || new Set(ch).size !== ch.length || !ch.every(c => ALL_CHALLENGES.includes(c))) return null;
   if (!GOALS.includes(body.goal) || !FORMATS.includes(body.format) || !PACES.includes(body.pace)) return null;
-  return { scores, challenges: ch, goal: body.goal, format: body.format, pace: body.pace };
+  const ap = body.appeals;
+  if (!Array.isArray(ap) || new Set(ap).size !== ap.length || !ap.every(x => APPEALS.includes(x))) return null;
+  return { scores, challenges: ch, goal: body.goal, format: body.format, pace: body.pace, appeals: ap };
 }
 
 const SYSTEM = `You are a caring wellbeing guide for EmptyHands, a traditional martial arts and wellbeing school in Ilford, east London, founded in 2006. Someone has just completed the short "Discover your path to wellbeing" assessment on the EmptyHands website. Analyse their answers and write them a personal report that identifies:
@@ -57,7 +63,7 @@ const SYSTEM = `You are a caring wellbeing guide for EmptyHands, a traditional m
 2. Their secondary challenge
 3. Their key strengths
 4. Areas of concern
-5. The EmptyHands service that suits them best, and up to two others worth considering, taking into account how they like to train (group or one to one, online, gentle or energetic)
+5. The EmptyHands service that suits them best, and up to two others worth considering, taking into account how they like to train (group or one to one, online, gentle or energetic) and what appeals to them
 6. Three daily practices they can start today
 7. A simple 30-day wellbeing plan
 
@@ -74,7 +80,7 @@ How to write the report:
 - Write in warm, encouraging, plain British English, speaking to the person as "you". Keep sentences short and avoid jargon.
 - Base everything on their answers, and refer to specific answers (for example "you rated your sleep 3 out of 10"). For stress or anxiety, and for pain, tension or stiffness, 10 is the worst; for every other scale, 10 is the best.
 - Strengths come from their higher-scoring areas and what they're looking for. If nothing scores well, find something genuine to encourage, such as taking this step.
-- Match services to needs: stress, calm and balance suit Tai Chi; stiffness, flexibility and sleep suit Yoga; pain, tension, tiredness and injury recovery suit Shiatsu; fitness, confidence, focus, discipline and self-defence suit Karate; direction, purpose, confidence and feeling low suit Wellbeing coaching. Only online sessions are coaching on Teams.
+- Match services to needs: stress, calm and balance suit Tai Chi; stiffness, flexibility and sleep suit Yoga; pain, tension, tiredness and injury recovery suit Shiatsu; fitness, confidence, focus, discipline, feeling safe and self-defence suit Karate; breathing suits Tai Chi and Yoga; little time for self-care suits Shiatsu; direction, purpose, confidence and feeling low suit Wellbeing coaching. Only online sessions are coaching on Teams.
 - Give exactly 3 daily practices. Each must be simple, safe for most people and doable at home in 2 to 15 minutes, with clear steps in "how".
 - Give a 4-week plan (weeks 1 to 4), each week with a short focus and 2 or 3 small, specific actions. Include booking the recommended service (its free consultation or a first class) in week 1 or 2.
 - This isn't a medical or psychological assessment. Don't diagnose, don't name conditions they haven't mentioned, and don't promise cures or make medical claims ("can help" rather than "will fix").
@@ -114,7 +120,8 @@ Main challenges (up to 3): ${a.challenges.length ? a.challenges.join(', ') : 'no
 Main goal: ${a.goal}
 
 How I'd like to practise: ${a.format}
-Pace that suits me: ${a.pace}`;
+Pace that suits me: ${a.pace}
+What appeals to me: ${a.appeals.length ? a.appeals.join(', ') : 'nothing chosen'}`;
 }
 
 // Keeps only what the page shows, at sensible lengths, whatever came back.
@@ -199,4 +206,4 @@ function handler({ getDb, makeClient = key => new Anthropic({ apiKey: key, timeo
   };
 }
 
-module.exports = { handler, readAnswers, tidy, userMessage, SCHEMA, SYSTEM, SERVICES, GOALS, ALL_CHALLENGES, SCALES, FORMATS, PACES };
+module.exports = { handler, readAnswers, tidy, userMessage, SCHEMA, SYSTEM, SERVICES, GOALS, ALL_CHALLENGES, SCALES, FORMATS, PACES, APPEALS };
