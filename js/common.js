@@ -86,7 +86,7 @@ export const OATH = '“I promise to uphold the true spirit of KaraTe and never 
 // The student licence, laid out like the paper one. `l` is licences/{uid}, `p` the student's
 // profile. With `edit`, every field is an input (Sensei panel); otherwise it's the student's copy.
 const SIGNER = 'Azeem Mushtaq (Sensei), Head Teacher, EmptyHands KaraTe School';
-export function licenceHTML(l, p, { edit = false, logo = 'assets/img/logo.png', sign = 'assets/img/signature.png' } = {}) {
+export function licenceHTML(l, p, { edit = false, logo = 'assets/img/logo.png', sign = 'assets/img/signature.png', seal = 'assets/img/seal.png' } = {}) {
   l = l || {};
   const rec = l.record || {};
   const field = (name, value, opts = {}) => edit
@@ -130,7 +130,7 @@ export function licenceHTML(l, p, { edit = false, logo = 'assets/img/logo.png', 
       <thead><tr><th>Belt</th><th>Rank</th><th>Level</th><th>Grading Date</th><th>Results</th><th>Grading Examiner(s)</th></tr></thead>
       <tbody>${belts}</tbody></table></div>
     <div class="lic-auth"><p>Records authenticated by</p>
-      ${signedByAzeem ? `<img class="lic-sign" src="${sign}" alt="Signature of Azeem Mushtaq (Sensei)" width="425" height="310">` : ''}
+      <div class="lic-marks"><img class="lic-seal" src="${seal}" alt="EmptyHands seal" width="310" height="308">${signedByAzeem ? `<img class="lic-sign" src="${sign}" alt="Signature of Azeem Mushtaq (Sensei)" width="425" height="310">` : ''}</div>
       <p>${field('authenticatedBy', l.authenticatedBy || (edit ? '' : SIGNER), { max: 120, ph: 'e.g. Azeem Mushtaq (Sensei), Head Teacher', label: 'Authenticated by' })}</p></div>
     <footer class="lic-foot">Copyright © EmptyHands ${new Date().getFullYear()}. All rights reserved.</footer>
   </article>`;
@@ -459,9 +459,9 @@ export function toast(msg, kind = '') {
 
 // Busy state for a submit button while an async action runs.
 export async function busy(btn, fn) {
-  const text = btn.textContent;
+  const html = btn.innerHTML;
   btn.disabled = true; btn.classList.add('is-busy');
-  try { return await fn(); } finally { btn.disabled = false; btn.classList.remove('is-busy'); btn.textContent = text; }
+  try { return await fn(); } finally { btn.disabled = false; btn.classList.remove('is-busy'); btn.innerHTML = html; }
 }
 
 export function registerSW() {

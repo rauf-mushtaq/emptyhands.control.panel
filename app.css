@@ -504,9 +504,15 @@ a.fee-option:active { transform: scale(.98); }
 .fee-option .btn { margin-top: 10px; pointer-events: none; }
 .fee-option.has-pay .btn { pointer-events: auto; width: 100%; }
 .fee-option.has-pay .btn + .btn { margin-top: 8px; }
-.btn--apple { background: #000; border-color: #000; color: #fff; font-family: -apple-system, BlinkMacSystemFont, system-ui, sans-serif; font-size: 1.05rem; letter-spacing: 0; }
-.btn--apple:hover { background: #222; }
-.btn--gpay { font-family: Roboto, system-ui, sans-serif; font-weight: 500; }
+/* "Apple Pay · Google Pay" on one line, or stacked on two when the button is narrow. */
+.btn--wallet { container-type: inline-size; background: #000; border-color: #000; color: #fff; letter-spacing: 0; font-weight: 700; border-radius: 24px; }
+.btn--wallet:hover { background: #222; }
+.wallet-names { display: flex; justify-content: center; gap: .45em; }
+.wallet-names span + span::before { content: "·"; margin-right: .45em; opacity: .6; }
+@container (max-width: 220px) {
+  .wallet-names { flex-direction: column; gap: 0; line-height: 1.3; }
+  .wallet-names span + span::before { content: none; }
+}
 .fee-option.has-pay .btn--paypal { color: #003087; font-style: italic; font-weight: 800; letter-spacing: 0; }
 .fee-alt { justify-self: center; margin-top: 6px; padding: 4px 6px; border: 0; background: none; font: inherit; font-size: .82rem; color: var(--ink-2); text-decoration: underline; text-underline-offset: 2px; cursor: pointer; }
 .fee-option.is-application { background: var(--paper-2); }
@@ -573,7 +579,9 @@ body.in-chat .chat-compose { flex: none; position: static; }
 .lic-record tr.is-current td { font-weight: 700; }
 .lic-auth { margin: 18px 0 8px; }
 .lic-auth p { margin: 0; }
-.lic-sign { display: block; width: 160px; height: auto; margin: 6px 0 4px; }
+.lic-marks { display: flex; align-items: flex-end; gap: 14px; margin: 8px 0 4px; }
+.lic-seal { width: 70px; height: auto; flex: none; }
+.lic-sign { display: block; width: 160px; height: auto; }
 .lic-foot { border-top: 1px solid #999; margin-top: 24px; padding-top: 6px; color: #777; font-size: .8rem; }
 .licence--edit input, .licence--edit select { width: 100%; min-height: 32px; padding: 2px 6px; border: 1px dashed #b9b2a4; border-radius: 4px; background: #fffdf6; font: inherit; color: inherit; }
 .licence--edit .lic-record input, .licence--edit .lic-record select { min-width: 92px; font-size: .86rem; }
@@ -596,7 +604,9 @@ body.in-chat .chat-compose { flex: none; position: static; }
   .licence h3 { margin: 10px 0 4px; }
   .lic-details th, .lic-details td { padding: 2px 8px; }
   .lic-auth { margin: 10px 0 0; break-inside: avoid; }
-  .lic-sign { width: 120px; margin: 2px 0; }
+  .lic-marks { margin: 2px 0; }
+  .lic-seal { width: 54px; }
+  .lic-sign { width: 120px; }
   .lic-foot { margin-top: 8px; padding-top: 4px; }
   .lic-head img { height: 52px; }
   .lic-oath { line-height: 1.35; }
