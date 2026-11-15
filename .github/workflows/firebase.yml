@@ -54,13 +54,18 @@ jobs:
           fi
           # Card, Apple Pay and Google Pay fees in the student app need the Stripe secret key
           # (repository secret STRIPE_SECRET_KEY, from dashboard.stripe.com → Developers → API keys).
-          case "$STRIPE_SECRET_KEY" in
+          # Spaces or line breaks copied along with the key are dropped.
+          key=$(printf '%s' "$STRIPE_SECRET_KEY" | tr -d '[:space:]')
+          case "$key" in
             sk_live_*|rk_live_*) cards=live ;;
             sk_test_*|rk_test_*) cards=test ;;
             '') cards=off ;;
-            *) cards=off; echo "::warning::STRIPE_SECRET_KEY doesn't look like a Stripe secret key (sk_live_…), so card payments stay off." ;;
+            *) cards=off
+               # Only the kind of key is shown (e.g. pk_live_ is the publishable key), never the key itself.
+               kind=$(printf '%s' "$key" | grep -oE '^[a-z]{2,4}_(live|test)_' || true)
+               echo "::warning::STRIPE_SECRET_KEY isn't a Stripe secret key: it starts '${kind:-with something else}' and is ${#key} characters long. Use the secret key (sk_live_… or rk_live_…), not the publishable key (pk_live_…)." ;;
           esac
-          if [ "$cards" != off ]; then printf 'STRIPE_SECRET_KEY=%s\n' "$STRIPE_SECRET_KEY" >> "$env_file"; fi
+          if [ "$cards" != off ]; then printf 'STRIPE_SECRET_KEY=%s\n' "$key" >> "$env_file"; fi
           echo "CARDS=$cards" >> "$GITHUB_ENV"
           echo "Card payments: $cards"
       - name: Deploy functions and rules
