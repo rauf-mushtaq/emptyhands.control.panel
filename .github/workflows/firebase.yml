@@ -116,3 +116,17 @@ jobs:
           [ "$code" = 405 ] || echo "::warning::paypalIpn answered $code instead of 405, so PayPal payments may not be recorded."
           echo "wellbeingReport: $(curl -s https://europe-west2-emptyhands-student-portal.cloudfunctions.net/wellbeingReport)"
           echo "cardPayments: $(curl -s https://europe-west2-emptyhands-student-portal.cloudfunctions.net/cardPayments)"
+      - name: Check Stripe accepts the key (card payments)
+        if: env.HAS_KEY == 'true' && env.CARDS != 'off' && env.CARDS != ''
+        env:
+          STRIPE_SECRET_KEY: ${{ secrets.STRIPE_SECRET_KEY }}
+        run: |
+          # Asks Stripe for the latest payment page, the same kind of request the app makes. Prints only the result.
+          key=$(printf '%s' "$STRIPE_SECRET_KEY" | tr -d '[:space:]')
+          code=$(curl -s -o /dev/null -w '%{http_code}' -u "$key:" 'https://api.stripe.com/v1/checkout/sessions?limit=1')
+          case "$code" in
+            200) echo "Stripe accepts the key: card, Apple Pay and Google Pay payments are ready." ;;
+            401) echo "::warning::Stripe says the STRIPE_SECRET_KEY isn't valid (401). Create a new secret key in Stripe and update the secret." ;;
+            403) echo "::warning::Stripe says the key isn't allowed to make payment pages (403). Create the key with 'Full access – except sensitive operations'." ;;
+            *) echo "::warning::Stripe answered $code." ;;
+          esac
