@@ -255,8 +255,9 @@ $('#coach-alerts').addEventListener('click', async () => {
 });
 
 // ---- EmptyHands chats: private chat with each student's family ----
-// A chat is mine if it's shared with every Sensei or just with me (the head Sensei can also read the rest).
-const myChat = tid => ['all', state.myKey].includes(threadParts(tid).key);
+// Students message Sensei privately in one chat that every Sensei shares (chats/{studentUid}).
+// (Older chats with a single Sensei, chats/{uid}~{key}, are no longer shown.)
+const myChat = tid => threadParts(tid).key === 'all';
 const unreadChat = c => c && myChat(c.id) && c.lastFrom === 'student' && (c.lastAt || 0) > (c.coachReadAt || 0);
 // How many of a student's messages are unread (chats from before the count existed show as 1).
 const unreadCount = c => (unreadChat(c) ? Math.max(c.coachUnread || 0, 1) : 0);
@@ -606,24 +607,13 @@ function drawChatList() {
   const chats = Object.fromEntries(state.chats.map(c => [c.id, c]));
   const students = state.students.filter(s => s.role === 'student')
     .filter(s => !q || [s.name, s.guardian, s.email].some(v => (v || '').toLowerCase().includes(q)));
-  // Every student's shared chat, plus any private chats (with me, or with others for the head Sensei).
-  const rows = students.flatMap(s => [
-    { tid: s.id, s, chat: chats[s.id] },
-    ...state.chats.filter(c => c.id.startsWith(s.id + '~')).map(c => ({ tid: c.id, s, chat: c })),
-  ]).sort((a, b) => ((b.chat && b.chat.lastAt) || 0) - ((a.chat && a.chat.lastAt) || 0) || (a.s.name || '').localeCompare(b.s.name || ''));
+  // One private chat per student, shared by every Sensei.
+  const rows = students.map(s => ({ tid: s.id, s, chat: chats[s.id] })).sort((a, b) => ((b.chat && b.chat.lastAt) || 0) - ((a.chat && a.chat.lastAt) || 0) || (a.s.name || '').localeCompare(b.s.name || ''));
   $('#chat-list').innerHTML = rows.length ? rows.map(({ tid, s, chat }) => `
     <li><button type="button" class="chat-item${unreadChat(chat) ? ' is-unread' : ''}${state.open === tid ? ' is-open' : ''}" data-chat="${esc(tid)}">
-      <b>${esc(s.name)}${unreadChat(chat) ? ` <span class="unread-n">${unreadCount(chat)}</span>` : ''} <span class="thread-tag">${esc(threadLabel(tid))}</span></b>${chat ? `<time>${timeAgo(chat.lastAt)}</time>` : ''}
+      <b>${esc(s.name)}${unreadChat(chat) ? ` <span class="unread-n">${unreadCount(chat)}</span>` : ''}</b>${chat ? `<time>${timeAgo(chat.lastAt)}</time>` : ''}
       <small>${chat ? (chat.lastFrom === 'coach' ? 'Sensei: ' : '') + esc(chat.lastText) : esc(s.guardian ? 'Parent: ' + s.guardian : 'No messages yet')}</small>
     </button></li>`).join('') : '<li class="muted fine">No accepted students yet.</li>';
-}
-// "All Sensei", "Just you" or (head Sensei viewing) "Just <name>".
-function threadLabel(tid) {
-  const { key } = threadParts(tid);
-  if (key === 'all') return 'All Sensei';
-  if (key === state.myKey) return 'Just you';
-  const s = (state.senseis || []).find(x => x.key === key);
-  return 'Just ' + (s ? s.name : 'another Sensei');
 }
 $('#chat-search').addEventListener('input', drawChatList);
 $('#chat-list').addEventListener('click', e => {
@@ -673,13 +663,10 @@ function drawThread() {
     : '<p class="muted fine center">No messages yet. Say hello — the student and their family will see it in their EmptyHands chats.</p>';
   if (!editing.id) feed.scrollTop = feed.scrollHeight;
 }
-// Switch between the shared chat and the private one with this student.
+// There's only the one chat with each student now, so no switching.
 function drawThreadPick() {
-  const uid = threadParts(state.open).student;
-  const opts = [threadId(uid, 'all'), threadId(uid, state.myKey)];
-  if (opts.includes(state.open)) {
-    $('#thread-pick').innerHTML = opts.map(t => `<button type="button" class="chip" role="tab" aria-selected="${t === state.open}" data-thread="${esc(t)}">${t === opts[0] ? 'All Sensei' : 'Just you'}</button>`).join('');
-  } else $('#thread-pick').innerHTML = `<span class="chip" aria-selected="true">${esc(threadLabel(state.open))} · view only</span>`;
+  $('#thread-pick').hidden = true;
+  $('#thread-pick').innerHTML = '';
 }
 $('#thread-pick').addEventListener('click', e => {
   const b = e.target.closest('[data-thread]');

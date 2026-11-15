@@ -17,6 +17,8 @@ initializeApp({ projectId: 'emptyhands-student-portal' });
     n++;
   }
   console.log(`Chats updated: ${n} of ${chats.size}`);
+  // Chats with a single Sensei aren't shown any more (students message every Sensei in one chat).
+  console.log(`Older chats with a single Sensei (no longer shown): ${chats.docs.filter(d => d.id.includes('~')).length}`);
 
   // 2. Sensei accounts made before listed Sensei had to confirm their email (15 November 2026)
   //    carry on without confirming: their uids go in settings/coaches.uids. Accounts made after
