@@ -85,7 +85,8 @@ export const OATH = '“I promise to uphold the true spirit of KaraTe and never 
 
 // The student licence, laid out like the paper one. `l` is licences/{uid}, `p` the student's
 // profile. With `edit`, every field is an input (Sensei panel); otherwise it's the student's copy.
-export function licenceHTML(l, p, { edit = false, logo = 'assets/img/logo.png' } = {}) {
+const SIGNER = 'Azeem Mushtaq (Sensei), Head Teacher, EmptyHands KaraTe School';
+export function licenceHTML(l, p, { edit = false, logo = 'assets/img/logo.png', sign = 'assets/img/signature.png' } = {}) {
   l = l || {};
   const rec = l.record || {};
   const field = (name, value, opts = {}) => edit
@@ -116,6 +117,8 @@ export function licenceHTML(l, p, { edit = false, logo = 'assets/img/logo.png' }
       ${cell('result', result)}
       ${cell('examiners', field(`rec.${b.grade}.examiners`, r.examiners, { max: 80, ph: 'e.g. AM, JP', label: b.belt + ' examiners' }))}</tr>`;
   }).join('');
+  // Azeem Sensei's signature, unless Sensei put someone else as authenticating the records.
+  const signedByAzeem = /^\s*azeem mushtaq/i.test(l.authenticatedBy || SIGNER);
   return `<article class="licence${edit ? ' licence--edit' : ''}">
     <header class="lic-head"><img src="${logo}" alt="EmptyHands KaraTe School"><span>Develop – Empower – Inspire</span></header>
     <h2 class="lic-title">Student Licence – <i>Original Copy</i></h2>
@@ -126,7 +129,9 @@ export function licenceHTML(l, p, { edit = false, logo = 'assets/img/logo.png' }
     <div class="lic-table-wrap"><table class="lic-record">
       <thead><tr><th>Belt</th><th>Rank</th><th>Level</th><th>Grading Date</th><th>Results</th><th>Grading Examiner(s)</th></tr></thead>
       <tbody>${belts}</tbody></table></div>
-    <p class="lic-auth">Records authenticated by ${field('authenticatedBy', l.authenticatedBy || (edit ? '' : 'Azeem Mushtaq (Sensei), Head Teacher, EmptyHands KaraTe School'), { max: 120, ph: 'e.g. Azeem Mushtaq (Sensei), Head Teacher', label: 'Authenticated by' })}</p>
+    <div class="lic-auth"><p>Records authenticated by</p>
+      ${signedByAzeem ? `<img class="lic-sign" src="${sign}" alt="Signature of Azeem Mushtaq (Sensei)" width="425" height="310">` : ''}
+      <p>${field('authenticatedBy', l.authenticatedBy || (edit ? '' : SIGNER), { max: 120, ph: 'e.g. Azeem Mushtaq (Sensei), Head Teacher', label: 'Authenticated by' })}</p></div>
     <footer class="lic-foot">Copyright © EmptyHands ${new Date().getFullYear()}. All rights reserved.</footer>
   </article>`;
 }

@@ -568,6 +568,8 @@ body.in-chat .chat-compose { flex: none; position: static; }
 .lic-record .lic-belt { background: var(--belt); color: var(--belt-ink); }
 .lic-record tr.is-current td { font-weight: 700; }
 .lic-auth { margin: 18px 0 8px; }
+.lic-auth p { margin: 0; }
+.lic-sign { display: block; width: 160px; height: auto; margin: 6px 0 4px; }
 .lic-foot { border-top: 1px solid #999; margin-top: 24px; padding-top: 6px; color: #777; font-size: .8rem; }
 .licence--edit input, .licence--edit select { width: 100%; min-height: 32px; padding: 2px 6px; border: 1px dashed #b9b2a4; border-radius: 4px; background: #fffdf6; font: inherit; color: inherit; }
 .licence--edit .lic-record input, .licence--edit .lic-record select { min-width: 92px; font-size: .86rem; }
@@ -585,6 +587,16 @@ body.in-chat .chat-compose { flex: none; position: static; }
   .licence--edit input, .licence--edit select { border: 0 !important; background: none !important; box-shadow: none !important; padding: 0 !important; min-height: 0 !important; height: auto !important; appearance: none; -webkit-appearance: none; color: #111 !important; }
   .licence--edit input::placeholder { color: transparent; }
   .licence--edit .lic-auth input { width: 100% !important; display: block; }
+  /* Keep the licence, signature and all, on one A4 page. */
+  .lic-title { margin: 10px 0 8px; }
+  .licence h3 { margin: 10px 0 4px; }
+  .lic-details th, .lic-details td { padding: 2px 8px; }
+  .lic-auth { margin: 10px 0 0; break-inside: avoid; }
+  .lic-sign { width: 120px; margin: 2px 0; }
+  .lic-foot { margin-top: 8px; padding-top: 4px; }
+  .lic-head img { height: 52px; }
+  .lic-oath { line-height: 1.35; }
+  .lic-record th, .lic-record td { padding: 2px 6px; }
 }
 
 /* Medals */
