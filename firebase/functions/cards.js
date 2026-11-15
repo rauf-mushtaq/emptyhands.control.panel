@@ -79,6 +79,8 @@ async function checkout({ db, stripe, uid, email, feeId, native }) {
   const back = native ? STUDENT_URL + 'paid.html' : STUDENT_URL;
   const session = await stripe('POST', 'checkout/sessions', {
     mode: 'payment',
+    // Cards only, which on Stripe's page includes Apple Pay and Google Pay (no Klarna and the like).
+    payment_method_types: ['card'],
     submit_type: 'pay',
     locale: 'en-GB',
     line_items: [{ quantity: 1, price_data: { currency: 'gbp', unit_amount: amount, product_data: { name: label(fee, user.name) } } }],
