@@ -506,6 +506,7 @@ a.fee-option:active { transform: scale(.98); }
 .fee-option.has-pay .btn + .btn { margin-top: 8px; }
 .btn--apple { background: #000; border-color: #000; color: #fff; font-family: -apple-system, BlinkMacSystemFont, system-ui, sans-serif; font-size: 1.05rem; letter-spacing: 0; }
 .btn--apple:hover { background: #222; }
+.btn--gpay { font-family: Roboto, system-ui, sans-serif; font-weight: 500; }
 .fee-option.has-pay .btn--paypal { color: #003087; font-style: italic; font-weight: 800; letter-spacing: 0; }
 .fee-alt { justify-self: center; margin-top: 6px; padding: 4px 6px; border: 0; background: none; font: inherit; font-size: .82rem; color: var(--ink-2); text-decoration: underline; text-underline-offset: 2px; cursor: pointer; }
 .fee-option.is-application { background: var(--paper-2); }
