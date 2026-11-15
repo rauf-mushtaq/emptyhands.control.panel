@@ -35,6 +35,19 @@ jobs:
           cache-dependency-path: firebase/functions/package-lock.json
       - if: env.HAS_KEY == 'true'
         run: npm --prefix functions ci
+      - name: Switch on AI wellbeing reports (if there's an Anthropic API key)
+        if: env.HAS_KEY == 'true'
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          # The wellbeing check on emptyhands.co.uk offers an AI-written report only when the
+          # repository secret ANTHROPIC_API_KEY exists. The key goes to the function's settings, never into the repository.
+          if [ -n "$ANTHROPIC_API_KEY" ]; then
+            printf 'ANTHROPIC_API_KEY=%s\n' "$ANTHROPIC_API_KEY" > functions/.env.emptyhands-student-portal
+            echo "AI wellbeing reports: on"
+          else
+            echo "AI wellbeing reports: off (add the ANTHROPIC_API_KEY repository secret to switch them on)"
+          fi
       - name: Deploy functions and rules
         if: env.HAS_KEY == 'true'
         env:
@@ -81,3 +94,4 @@ jobs:
           code=$(curl -s -o /dev/null -w '%{http_code}' https://europe-west2-emptyhands-student-portal.cloudfunctions.net/paypalIpn)
           echo "paypalIpn answered $code"
           [ "$code" = 405 ] || echo "::warning::paypalIpn answered $code instead of 405, so PayPal payments may not be recorded."
+          echo "wellbeingReport: $(curl -s https://europe-west2-emptyhands-student-portal.cloudfunctions.net/wellbeingReport)"

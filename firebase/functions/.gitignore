@@ -1,1 +1,3 @@
 node_modules/
+# Written by the deploy workflow from repository secrets; never commit.
+.env*

@@ -266,6 +266,13 @@ exports.paypalIpn = onRequest({ region: REGION, invoker: 'public' }, async (req,
   res.status(200).end();
 });
 
+// The optional AI-written report for the wellbeing check on emptyhands.co.uk (see wellbeing.js).
+// Only the website's pages may call it (CORS); wellbeing.js limits how many reports a day it writes.
+exports.wellbeingReport = onRequest({
+  region: REGION, invoker: 'public', timeoutSeconds: 120, maxInstances: 3,
+  cors: ['https://emptyhands.co.uk', 'https://www.emptyhands.co.uk'],
+}, require('./wellbeing').handler({ getDb: getFirestore }));
+
 // On the 7th of each month, if Sensei switched on automatic reminders, message every accepted
 // student who hasn't paid this month's fee (the message also arrives as a push notification).
 exports.monthlyReminders = onSchedule({ schedule: '0 10 7 * *', timeZone: 'Europe/London', region: REGION }, async () => {
