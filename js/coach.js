@@ -2,13 +2,13 @@ import { backend, DEMO, isCoach, errorText } from './backend.js';
 import { OWNER_EMAILS, STUDENT_URL } from './config.js';
 import { webPushReady, webPushToken } from './webpush.js';
 import {
-  $, $$, esc, GRADES, DISCIPLINES, DOJOS, AUDIENCES, CLASS_CHATS, classChatName, renderYear, legendHTML, loadCalendar, calendarYears,
+  $, $$, esc, GRADES, DISCIPLINES, DOJOS, AUDIENCES, CLASS_CHATS, CLASS_JOURNALS, classChatName, renderYear, legendHTML, loadCalendar, calendarYears,
   noticeIsFor, homeworkIsFor, DEFAULT_FEES, FEE_GROUPS, FEE_LEVELS, paypalLink, longDate,
   TYPES, todayKey, whenText, monthKey, monthName, isMonthly, monthlyFeeFor, onApplication, money, PAY_METHODS, shortDate, timeAgo, keyOf, download, toast, busy, messageHTML, wireEdits, editing, licenceHTML, licenceFromForm, senseiKey, threadId, threadParts, senseiList, MEDALS, MEDAL_REASONS, medalHTML,
 } from './common.js';
 
 let api;
-const state = { gch: 'group-karate', user: null, students: [], notices: [], requests: null, chats: [], open: null, thread: [], view: 'requests', stops: [], stopThread: null, cm: 'private', group: [], journal: [], homework: [] };
+const state = { gch: 'karate', user: null, students: [], notices: [], requests: null, chats: [], open: null, thread: [], view: 'requests', stops: [], stopThread: null, cm: 'private', group: [], journal: [], homework: [] };
 const ed = { year: new Date().getFullYear(), days: {}, timings: [], pdf: '', dirty: false, published: false };
 const NAME_KEY = 'eh-coach-name';
 const savedName = () => { try { return localStorage.getItem(NAME_KEY) || ''; } catch { return ''; } };
@@ -166,13 +166,12 @@ async function onAuth(user) {
   $('#form-notice [name=from]').value = savedName();
   $('#reply-from').value = savedName();
   $('#form-homework').from.value = savedName();
-  // One group chat per class; Sensei see them all (state.gch is the one open).
-  Object.keys(CLASS_CHATS).forEach(id => state.stops.push(api.watchChannel(id, list => { state[id] = list; drawChannel(); })));
+  // One group chat and one training journal per class; Sensei see them all (state.gch is the class open).
+  [...Object.keys(CLASS_CHATS), ...Object.keys(CLASS_JOURNALS)].forEach(id => state.stops.push(api.watchChannel(id, list => { state[id] = list; drawChannel(); })));
   state.stops.push(api.watchAwards(list => { state.awards = list; drawAwards(); drawHome(); }));
   state.stops.push(api.watchPaymentsForMonth(monthKey(), list => { state.monthPay = list; drawHome(); }));
   $('#side-email').textContent = user.email;
   $('#form-award').from.value = savedName();
-  state.stops.push(api.watchChannel('journal', list => { state.journal = list; drawChannel(); }));
   state.stops.push(api.watchHomework(list => { state.homework = list; drawHomeworkAdmin(); }));
   state.stops.push(api.watchNotifications(list => { state.notices = list; drawSent(); }));
   state.stops.push(api.watchRequests(onRequests));
@@ -269,10 +268,8 @@ function drawMenuCount() {
   $('[data-cm=private] .dot').hidden = !n;
 }
 
-// Group chat and training journal: everyone can see them; Sensei can delete any message.
-const CM_INTRO = {
-  journal: 'Students share what they’ve practised. Reply to encourage them — your messages show in bold.',
-};
+// Group chats and training journals, one of each per class: only that class and Sensei can see
+// them; Sensei can delete any message.
 $('.menu-switch').addEventListener('click', e => {
   const b = e.target.closest('[data-cm]');
   if (!b || b.dataset.cm === state.cm) return;
@@ -284,8 +281,8 @@ $('.menu-switch').addEventListener('click', e => {
 });
 // Fade a panel in when switching to it.
 function fadeIn(el) { el.classList.remove('fade-in'); void el.offsetWidth; el.classList.add('fade-in'); }
-// The Group tab stands for the class group chat that's open.
-const chId = () => (state.cm === 'group' ? state.gch : state.cm);
+// The Group and Journal tabs stand for that tab's channel in the class that's open.
+const chId = () => (state.cm === 'group' || state.cm === 'journal' ? `${state.cm}-${state.gch}` : state.cm);
 function drawChannel() {
   const ch = state.cm;
   $('#menu-layout').hidden = ch !== 'private';
@@ -293,12 +290,13 @@ function drawChannel() {
   if (ch === 'private') return;
   const cid = chId();
   const name = classChatName(cid);
-  $('#group-pick').hidden = ch !== 'group';
-  $('#group-pick').innerHTML = Object.keys(CLASS_CHATS).map(id => `<button type="button" class="chip" role="tab" data-gch="${id}" aria-selected="${id === state.gch}">${classChatName(id)}</button>`).join('');
+  $('#group-pick').hidden = false;
+  $('#group-pick').setAttribute('aria-label', ch === 'journal' ? 'Which class training journal' : 'Which class group chat');
+  $('#group-pick').innerHTML = Object.values(CLASS_CHATS).map(c => `<button type="button" class="chip" role="tab" data-gch="${c}" aria-selected="${c === state.gch}">${DISCIPLINES[c]}</button>`).join('');
   $('#channel-intro').textContent = ch === 'group'
     ? `${name} group chat: students in the ${name} classes, their families and Sensei. Your messages show in bold.`
-    : CM_INTRO[ch];
-  $('#channel-text').placeholder = ch === 'group' ? `Write to the ${name} group…` : 'Reply in the training journal…';
+    : `${name} training journal: students in the ${name} classes share what they’ve practised. Reply to encourage them; your messages show in bold.`;
+  $('#channel-text').placeholder = ch === 'group' ? `Write to the ${name} group…` : `Reply in the ${name} training journal…`;
   const feed = $('#channel-feed');
   const list = state[cid] || [];
   feed.innerHTML = list.length ? list.map(m => messageHTML(m, m.from === 'coach', true, mineCoach(m))).join('')
@@ -1173,11 +1171,18 @@ $('#hero-dots').addEventListener('click', e => {
 });
 // ---- Reported messages (head Sensei only) ----
 const REPORT_WHERE = { group: 'Group chat', journal: 'Training journal', chat: 'Private chat' };
+// Where a reported message was: e.g. 'Yoga group chat' or 'Karate training journal'.
+function reportWhere(r) {
+  const ch = (r.path || '').split('/')[1];
+  if (CLASS_CHATS[ch]) return classChatName(ch) + ' group chat';
+  if (CLASS_JOURNALS[ch]) return classChatName(ch) + ' training journal';
+  return REPORT_WHERE[r.where] || 'Chat';
+}
 function drawReports() {
   const list = state.reports || [];
   $('#home-reports').hidden = !list.length;
   $('#report-list').innerHTML = list.map(r => `<article class="card report">
-      <p class="eyebrow">${esc(CLASS_CHATS[(r.path || '').split('/')[1]] ? classChatName((r.path || '').split('/')[1]) + ' group chat' : REPORT_WHERE[r.where] || 'Chat')} · reported ${timeAgo(r.createdAt)}</p>
+      <p class="eyebrow">${esc(reportWhere(r))} · reported ${timeAgo(r.createdAt)}</p>
       <p><b>${esc(r.byName || 'Someone')}</b> reported a message from <b>${esc(r.author || 'someone')}</b>${r.reason ? ': ' + esc(r.reason) : ''}</p>
       <blockquote class="report-text">${esc(r.text || '').replace(/\n/g, '<br>')}</blockquote>
       <p class="row-actions"><button type="button" class="linkish danger" data-rep-del="${esc(r.id)}">Delete the message</button>

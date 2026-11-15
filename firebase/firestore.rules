@@ -135,13 +135,13 @@ service cloud.firestore {
       }
     }
 
-    // Group chats and training journal. 'group-karate', 'group-taichi' and 'group-yoga' are one
-    // group chat per class: students use the ones for the classes on their profile, Sensei all of
-    // them. 'journal' (and 'group', the old whole-dojo chat) are for every accepted student.
-    // Authors can edit their messages; authors and Sensei can delete them.
+    // Group chats and training journals, one of each per class ('group-karate', 'journal-karate',
+    // 'group-taichi', …): students use the ones for the classes on their profile, Sensei all of them,
+    // so no class sees another's conversations. 'group' and 'journal', the old whole-dojo chat and
+    // journal, are now for Sensei only. Authors can edit their messages; authors and Sensei can delete them.
     function canUseChannel(ch) {
-      return (ch in ['group', 'journal'] && (isStudent() || isCoach()))
-        || (ch in ['group-karate', 'group-taichi', 'group-yoga']
+      return (ch in ['group', 'journal'] && isCoach())
+        || (ch in ['group-karate', 'group-taichi', 'group-yoga', 'journal-karate', 'journal-taichi', 'journal-yoga']
             && (isCoach() || (isStudent() && ch.split('-')[1] in myAudiences())));
     }
     match /channels/{ch}/messages/{id} {

@@ -117,7 +117,7 @@ async function firebaseBackend() {
     },
     markChatRead: (uid, who) => F.setDoc(ref('chats', uid), { [who + 'ReadAt']: Date.now(), ...(who === 'coach' ? { coachUnread: 0 } : {}) }, { merge: true }),
 
-    // Shared channels everyone accepted can read: 'group' (group chat) and 'journal' (training journal).
+    // Class group chats and training journals (channels/group-karate, journal-karate, …).
     watchChannel: (ch, cb) => F.onSnapshot(
       F.query(F.collection(db, 'channels', ch, 'messages'), F.orderBy('createdAt'), F.limitToLast(300)),
       snap => cb(rows(snap).map(m => ({ ...m, createdAt: millis(m.createdAt) }))),

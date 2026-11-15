@@ -9,11 +9,15 @@ export const TYPES = {
 };
 
 export const DISCIPLINES = { karate: 'Karate', taichi: 'Tai Chi', yoga: 'Yoga' };
-// Group chats: one per class (channels/group-karate, group-taichi, group-yoga). Students see the
-// ones for the classes they attend, and switch between them if they're in more than one; Sensei see all.
+// Group chats and training journals: one of each per class (channels/group-karate, journal-karate,
+// group-taichi, …), so every class keeps its conversations to itself. Students see the ones for the
+// classes they attend, and switch between them if they're in more than one; Sensei see all.
 export const CLASS_CHATS = { 'group-karate': 'karate', 'group-taichi': 'taichi', 'group-yoga': 'yoga' };
-export const classChatsFor = p => Object.keys(CLASS_CHATS).filter(id => ((p && p.disciplines) || []).includes(CLASS_CHATS[id]));
-export const classChatName = id => DISCIPLINES[CLASS_CHATS[id]] || 'Group';
+export const CLASS_JOURNALS = { 'journal-karate': 'karate', 'journal-taichi': 'taichi', 'journal-yoga': 'yoga' };
+export const classesFor = p => Object.keys(DISCIPLINES).filter(d => ((p && p.disciplines) || []).includes(d));
+export const classChatsFor = p => classesFor(p).map(d => 'group-' + d);
+// The class a group chat or journal belongs to ('group-yoga' → 'Yoga').
+export const classChatName = id => DISCIPLINES[String(id).split('-')[1]] || 'Group';
 export const DOJOS = { ilford: 'Ilford', epping: 'Epping (invite only)', both: 'Both dojos' };
 // Karate belts, lowest first. 'dan' (black belt) is what black-belt dates and notices check for.
 export const GRADES = {

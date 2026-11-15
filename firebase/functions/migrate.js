@@ -36,4 +36,20 @@ initializeApp({ projectId: 'emptyhands-student-portal' });
   }
   if (bound) await coachesRef.set({ uids: [...uids] }, { merge: true });
   console.log(`Existing Sensei accounts kept without email confirmation: ${bound} added, ${uids.size} in all`);
+
+  // 3. The training journal is now one per class (channels/journal-karate, …). Students' posts in the
+  //    old whole-dojo journal move to the journal of the poster's class (their first class if they're
+  //    in more than one). Anything else stays where it was, where only Sensei can see it.
+  const oldJournal = await db.collection('channels/journal/messages').get();
+  let moved = 0;
+  for (const doc of oldJournal.docs) {
+    const m = doc.data();
+    const user = m.from === 'student' && m.uid ? (await db.doc('users/' + m.uid).get()).data() : null;
+    const cls = ['karate', 'taichi', 'yoga'].find(c => ((user && user.disciplines) || []).includes(c));
+    if (!cls) continue;
+    await db.doc(`channels/journal-${cls}/messages/${doc.id}`).set(m);
+    await doc.ref.delete();
+    moved++;
+  }
+  console.log(`Old shared journal posts moved to class journals: ${moved} of ${oldJournal.size}`);
 })().catch(err => { console.error(err); process.exit(1); });
