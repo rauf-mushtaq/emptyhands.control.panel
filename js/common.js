@@ -113,6 +113,7 @@ export function licenceHTML(l, p, { edit = false, logo = 'assets/img/logo.png' }
     <table class="lic-details"><tbody>${details}</tbody></table>
     <h3>Oath</h3><p class="lic-oath">${esc(OATH)}</p>
     <h3>Record</h3>
+    <p class="lic-swipe no-print">Swipe the table sideways to see grading dates, results and examiners →</p>
     <div class="lic-table-wrap"><table class="lic-record">
       <thead><tr><th>Belt</th><th>Rank</th><th>Level</th><th>Grading Date</th><th>Results</th><th>Grading Examiner(s)</th></tr></thead>
       <tbody>${belts}</tbody></table></div>
@@ -269,16 +270,26 @@ export function noticeIsFor(n, p) {
 }
 
 // The published calendar for a year, falling back to the bundled 2026 calendar.
-export async function loadCalendar(api, year) {
+// provisional: for a later year Sensei hasn't published yet, show every Thursday as a class day
+// (the student app uses this, so it isn't empty in January; the Sensei panel shows a draft instead).
+export async function loadCalendar(api, year, provisional = false) {
   let cal = null;
   try { cal = await api.getCalendar(year); } catch (e) { console.warn(e); }
   if (!cal && +year === 2026) cal = structuredClone(CALENDAR_2026);
+  if (!cal && provisional && +year > 2026) cal = provisionalCalendar(year);
   return cal;
+}
+export function provisionalCalendar(year) {
+  const days = {};
+  for (let d = new Date(+year, 0, 1, 12); d.getFullYear() === +year; d.setDate(d.getDate() + 1)) {
+    if (d.getDay() === 4) days[keyOf(d)] = { type: 'training' };
+  }
+  return { year: +year, days, timings: CALENDAR_2026.timings || [], pdf: '', provisional: true };
 }
 export async function calendarYears(api) {
   let years = [];
   try { years = await api.listCalendarYears(); } catch (e) { console.warn(e); }
-  return [...new Set([2026, ...years])].sort((a, b) => a - b);
+  return [...new Set([2026, new Date().getFullYear(), ...years])].sort((a, b) => a - b);
 }
 
 // Renders the 12-month grid. opts: { days, profile, onlyMine, editable, onDay(key, button) }
@@ -317,17 +328,20 @@ export function renderYear(el, year, opts = {}) {
   if (opts.onDay) el.onclick = e => { const b = e.target.closest('button.cal-day'); if (b) opts.onDay(b.dataset.key, b); };
 }
 
-// One chat message in the EmptyHands menu. Sensei's messages are bold; `mine` puts it on the
-// viewer's side; `del` adds a delete button (for moderation or the author's own messages).
+// One chat message in EmptyHands chats. Sensei's messages are bold; `mine` puts it on the
+// viewer's side; `del` adds a delete button (for moderation or the author's own messages);
+// more.report and more.block add Report and Block (for other people's messages, in the student app).
 // The sent message being edited, and the draft so far (kept while the feed redraws).
 export const editing = { id: null, draft: '' };
 
-export function messageHTML(m, mine, del, edit) {
+export function messageHTML(m, mine, del, edit, more = {}) {
   const who = m.from === 'coach' ? esc(m.author || 'Sensei') + ' · Sensei' : esc(m.author || 'Student');
   const open = edit && editing.id === m.id;
   const tools = [
     edit && !open ? `<button type="button" class="linkish" data-editmsg="${esc(m.id)}">Edit</button>` : '',
     del ? `<button type="button" class="linkish danger" data-delmsg="${esc(m.id)}">Delete</button>` : '',
+    more.report ? `<button type="button" class="linkish" data-reportmsg="${esc(m.id)}">Report</button>` : '',
+    more.block ? `<button type="button" class="linkish" data-blockuid="${esc(m.uid || '')}" data-blockname="${esc(m.author || 'Student')}">Block</button>` : '',
   ].filter(Boolean).join(' · ');
   const body = open
     ? `<form class="msg-edit" data-editform="${esc(m.id)}">

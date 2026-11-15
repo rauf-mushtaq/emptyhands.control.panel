@@ -573,7 +573,7 @@ body.in-chat .chat-compose { flex: none; position: static; }
 @media print {
   @page { size: A4; margin: 12mm; }
   body { background: #fff !important; padding: 0 !important; height: auto !important; overflow: visible !important; }
-  .app-top, .tabbar, .no-print, #toasts, .demo-banner, .install-btn { display: none !important; }
+  .app-top, .tabbar, .dock, .no-print, #toasts, .demo-banner, .install-btn { display: none !important; }
   .app-main { padding: 0 !important; max-width: none !important; }
   .view:not([hidden]) { animation: none !important; }
   .licence { border: 0; box-shadow: none; padding: 0; max-width: none; }
@@ -728,3 +728,40 @@ body.on-home .app-top { display: none; }
 .dm-pick .dot { position: absolute; top: 3px; right: 5px; width: 8px; height: 8px; border-radius: 50%; background: var(--seal); }
 .thread-tag { font-size: .7rem; font-weight: 700; color: var(--ink-3); background: var(--paper-2); border-radius: 99px; padding: 1px 7px; margin-left: 4px; vertical-align: middle; white-space: nowrap; }
 .chat-readonly { flex: none; padding: 10px 12px; background: var(--paper-2); border-radius: 10px; }
+
+/* ---- Community rules, Report and Block ---- */
+.rules-check { align-items: flex-start; font-weight: 400; font-size: .92rem; line-height: 1.45; }
+.rules-check input { margin-top: 3px; flex: none; }
+.rules-list { margin: 0; padding-left: 1.2em; display: grid; gap: 6px; }
+dialog.sheet { max-height: calc(100dvh - 32px); overflow-y: auto; }
+.report-quote, .report-text { margin: 0; padding: 10px 14px; border-left: 3px solid var(--line); background: var(--paper); border-radius: 0 10px 10px 0; font-size: .95rem; overflow-wrap: anywhere; max-height: 9em; overflow-y: auto; }
+.report-reasons { border: 0; padding: 0; margin: 0; display: grid; gap: 8px; }
+.report-reasons legend { font-weight: 700; margin-bottom: 6px; }
+.report-list { display: grid; gap: 12px; margin-bottom: 8px; }
+.report { border-left: 4px solid var(--seal); }
+.report p { margin: 6px 0; }
+.blocked-list li { align-items: center; }
+
+/* ---- Fit on phones: chat tabs, quick cards, slideshow dots, dock, licence table ---- */
+.channels { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); overflow: visible; margin: 0 0 10px; padding: 0; }
+.channels button { flex: initial; padding: 9px 6px; text-align: center; white-space: nowrap; min-width: 0; }
+.ch-short { display: none; }
+@media (max-width: 600px) { .ch-full { display: none; } .ch-short { display: inline; } }
+.quick-row { display: grid; grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)); gap: 10px; overflow: visible; margin: 0; padding: 4px 0 8px; scroll-snap-type: none; }
+.quick-card { height: auto; min-height: 112px; gap: 12px; padding: 12px 10px; flex: initial; }
+.quick-card b { font-size: clamp(.86rem, 3.9vw, 1.05rem); hyphens: auto; }
+.hero-dots { gap: 0; margin: 6px 0 0 -12px; padding-left: 0; min-height: 40px; }
+.hero-dots button { width: 40px; height: 40px; display: grid; place-items: center; background: none; }
+.hero-dots button::before { content: ''; width: 11px; height: 11px; border-radius: 50%; background: rgba(246, 242, 234, .35); }
+.hero-dots button[aria-current] { background: none; }
+.hero-dots button[aria-current]::before { background: var(--paper); }
+.tabbar { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.tabbar button { min-width: 0; }
+@media (max-width: 360px) {
+  .dock { left: 8px; right: 8px; gap: 8px; }
+  .tabbar { height: 60px; padding: 5px; }
+  .tabbar button { font-size: .64rem; letter-spacing: 0; }
+  .dock-action { width: 60px; height: 60px; }
+}
+.lic-swipe { display: none; margin: 0 0 6px; font-size: .82rem; color: var(--ink-3); }
+@media (max-width: 680px) { .lic-swipe { display: block; } }

@@ -49,3 +49,20 @@ jobs:
           # A first deploy can fail while Google finishes setting up new services; try again once after a pause.
           deploy || { echo "Retrying in 90 seconds…"; sleep 90; deploy; }
           node functions/migrate.js
+      - name: Daily database backups (kept for 7 days)
+        if: env.HAS_KEY == 'true'
+        run: |
+          # Set up once; later deploys find the schedule and leave it alone.
+          if gcloud firestore backups schedules list --database='(default)' --project emptyhands-student-portal --format='value(name)' | grep -q .; then
+            echo "Backup schedule already set up."
+          else
+            gcloud firestore backups schedules create --database='(default)' --recurrence=daily --retention=7d --project emptyhands-student-portal \
+              || echo "::warning::Couldn't set up daily backups."
+          fi
+      - name: Check the PayPal payment link is reachable
+        if: env.HAS_KEY == 'true'
+        run: |
+          # The student app sends PayPal here to record payments; a GET should be refused with 405.
+          code=$(curl -s -o /dev/null -w '%{http_code}' https://europe-west2-emptyhands-student-portal.cloudfunctions.net/paypalIpn)
+          echo "paypalIpn answered $code"
+          [ "$code" = 405 ] || echo "::warning::paypalIpn answered $code instead of 405, so PayPal payments may not be recorded."

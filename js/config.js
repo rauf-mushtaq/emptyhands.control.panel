@@ -18,13 +18,14 @@ export const firebaseConfig = {
 export const OWNER_EMAILS = ['info@emptyhands.co.uk'];
 
 // 3. Where each part lives.
-export const SITE_URL = 'https://rauf-mushtaq.github.io/emptyhands/';
+export const SITE_URL = 'https://emptyhands.co.uk/';
 export const STUDENT_URL = 'https://rauf-mushtaq.github.io/emptyhands.student/';
 export const COACH_URL = 'https://rauf-mushtaq.github.io/emptyhands.control.panel/';
 
 // 4. Automatic PayPal tracking: when true, PayPal payments made from the student app are
-//    recorded against the student by the paypalIpn function. Switch on only after deploying it.
-export const PAYPAL_AUTO_TRACK = false;
+//    recorded against the student by the paypalIpn function (deployed by the control panel's
+//    Deploy Firebase workflow), so they show as paid without Sensei ticking Mark paid.
+export const PAYPAL_AUTO_TRACK = true;
 
 // 5. Web push key, for notifications on the website and home-screen apps (the phone apps don't
 //    need it). Firebase console → Project settings → Cloud Messaging → Web Push certificates →

@@ -10,9 +10,7 @@
 <link rel="apple-touch-icon" href="assets/img/home-icon-180.png">
 <link rel="manifest" href="manifest.webmanifest">
 <meta name="apple-mobile-web-app-title" content="Sensei panel">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Karla:wght@400;500;700&family=Shippori+Mincho:wght@500;600;700&display=swap">
+<link rel="stylesheet" href="assets/fonts/fonts.css">
 <link rel="stylesheet" href="app.css">
 </head>
 <body class="coach">
@@ -20,7 +18,7 @@
 
 <header class="app-top app-top--dark" id="coach-top">
   <button type="button" class="hero-round hero-round--sm" id="menu-open" aria-label="Menu" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 7h14M5 12h14M5 17h14"/></svg></button>
-  <a class="app-brand" href="https://rauf-mushtaq.github.io/emptyhands/" aria-label="EmptyHands website"><img src="assets/img/logo-light.png" alt="EmptyHands KaraTe School" width="600" height="600"></a>
+  <a class="app-brand" href="https://emptyhands.co.uk/" aria-label="EmptyHands website"><img src="assets/img/logo-light.png" alt="EmptyHands KaraTe School" width="600" height="600"></a>
   <span class="app-title" id="top-title">Sensei panel</span>
   <button class="btn btn--ghost btn--sm btn--light" id="signout" hidden>Sign out</button>
 </header>
@@ -42,7 +40,7 @@
     <button data-go="calendar">Calendar</button>
     <button data-go="coaches">Sensei</button>
   </nav>
-  <a class="side-site" href="https://rauf-mushtaq.github.io/emptyhands/" target="_blank" rel="noopener">EmptyHands website</a>
+  <a class="side-site" href="https://emptyhands.co.uk/" target="_blank" rel="noopener">EmptyHands website</a>
   <button type="button" class="btn btn--ghost btn--block" id="side-signout">Sign out</button>
 </dialog>
 
@@ -73,10 +71,11 @@
 
   <section class="view auth" id="view-denied" hidden>
     <div class="auth-card">
-      <h1>Not a Sensei account yet</h1>
+      <h1 id="denied-title">Not a Sensei account yet</h1>
       <p id="denied-why"></p>
       <div class="stack">
         <button class="btn btn--seal btn--block" id="recheck">Check again</button>
+        <button class="btn btn--ghost btn--block" id="resend-verify" hidden>Send the link again</button>
         <button class="btn btn--ghost btn--block" id="denied-signout">Sign out</button>
       </div>
     </div>
@@ -105,6 +104,11 @@
         <button type="button" class="quick-card" data-go="calendar"><span class="quick-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg></span><b>Edit<br>calendar</b></button>
         <button type="button" class="quick-card" data-go="coaches"><span class="quick-icon">師</span><b>Sensei &amp;<br>alerts</b></button>
       </div>
+      <div id="home-reports" hidden>
+        <h2 class="sec-title">Reported messages</h2>
+        <p class="muted fine">Students and Sensei can report a message. Please look at each one within 24 hours: delete the message if it breaks the community rules, and remove anyone who keeps breaking them under <i>Students</i>.</p>
+        <div class="report-list" id="report-list"></div>
+      </div>
       <h2 class="sec-title">Needs your attention</h2>
       <div class="todo-list" id="home-todo"></div>
       <h2 class="sec-title">Next class <button class="linkish" data-go="calendar">Calendar</button></h2>
@@ -128,9 +132,9 @@
   <section class="view" id="view-menu" hidden>
     <button class="btn btn--ghost btn--sm notify-quick" type="button" data-notify-on hidden>Turn on notifications</button>
     <div class="channels menu-switch" role="tablist" aria-label="EmptyHands chats">
-      <button type="button" role="tab" data-cm="private" aria-selected="true">Private messages<span class="dot" hidden></span></button>
-      <button type="button" role="tab" data-cm="group" aria-selected="false">Group chat</button>
-      <button type="button" role="tab" data-cm="journal" aria-selected="false">Training journal</button>
+      <button type="button" role="tab" data-cm="private" aria-selected="true"><span class="ch-full">Private messages</span><span class="ch-short">Private</span><span class="dot" hidden></span></button>
+      <button type="button" role="tab" data-cm="group" aria-selected="false"><span class="ch-full">Group chat</span><span class="ch-short">Group</span></button>
+      <button type="button" role="tab" data-cm="journal" aria-selected="false"><span class="ch-full">Training journal</span><span class="ch-short">Journal</span></button>
     </div>
     <section class="card chat-pane" id="channel-pane" hidden>
       <p class="muted fine" id="channel-intro"></p>
@@ -201,11 +205,11 @@
       <div class="card-head"><h2>Who has paid <small id="paid-summary"></small></h2>
         <span class="view-actions"><label class="sr-only" for="paid-month">Month</label><select id="paid-month"></select>
         <button class="btn btn--seal btn--sm" id="remind-all" type="button">Remind everyone unpaid</button></span></div>
-      <p class="muted fine">Monthly fees for the month shown. PayPal payments from the student app are added automatically once tracking is switched on; tick <b>Mark paid</b> for cash or bank transfers. <b>Remind</b> sends a private EmptyHands-menu message, which also arrives as a phone notification.</p>
+      <p class="muted fine">Monthly fees for the month shown. PayPal payments made in the student app are marked paid automatically; tick <b>Mark paid</b> for cash or bank transfers. <b>Remind</b> sends a private message in EmptyHands chats, which also arrives as a phone notification.</p>
       <div class="table-wrap"><table class="students">
         <thead><tr><th>Student</th><th>Belt</th><th>Status</th><th><span class="sr-only">Actions</span></th></tr></thead>
         <tbody id="paid-rows"></tbody></table></div>
-      <label class="check"><input type="checkbox" id="auto-remind"> Send reminders automatically on the 7th of each month to anyone who hasn’t paid (needs the payment functions deployed — see README)</label>
+      <label class="check"><input type="checkbox" id="auto-remind"> Send reminders automatically on the 7th of each month to anyone who hasn’t paid</label>
       <div id="unmatched"></div>
     </section>
     <div class="card stack">
@@ -387,7 +391,7 @@
     <div class="coach-cols">
       <div class="card stack">
         <h2>Head Sensei</h2>
-        <p class="muted fine">Set in <code>js/config.js</code> (in both repositories) and <code>firebase/firestore.rules</code>. They can always sign in here.</p>
+        <p class="muted fine">The head Sensei can always sign in, adds and removes Sensei, can read every chat to keep students safe, and deals with reported messages.</p>
         <ul class="plain" id="owners"></ul>
       </div>
       <form class="card stack" id="form-myname">
@@ -403,9 +407,10 @@
       </div>
       <form class="card stack" id="form-coaches">
         <h2>Sensei</h2>
-        <p class="muted fine">Anyone on this list can send notices, see students and edit the calendar once they create a Sensei account with that email. Add someone only when they’re ready to create their account.</p>
+        <p class="muted fine">Anyone on this list can send notices, see students and edit the calendar once they create a Sensei account with that email. New Sensei confirm their email once, with a link we send them, so no one else can use their address.</p>
         <ul class="plain" id="coach-list"></ul>
-        <div class="inline-form"><input type="email" name="email" placeholder="sensei@example.com" aria-label="Sensei email" required><button class="btn btn--sm" type="submit">Add Sensei</button></div>
+        <div class="inline-form" id="coach-add"><input type="email" name="email" placeholder="sensei@example.com" aria-label="Sensei email" required><button class="btn btn--sm" type="submit">Add Sensei</button></div>
+        <p class="muted fine" id="coach-headonly" hidden>Only the head Sensei can add or remove Sensei.</p>
       </form>
     </div>
   </section>

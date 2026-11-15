@@ -12,13 +12,19 @@ export async function backend() {
   return api;
 }
 
-// A coach is an owner or listed in settings/coaches.
+// A coach is an owner or listed in settings/coaches. A Sensei account made after a head Sensei
+// listed its email must confirm the email once ('verify'), so no one else can claim it; accounts
+// that existed before this check (settings/coaches.uids) don't need to.
 export async function isCoach(user) {
   if (!user) return false;
   const b = await backend();
   if (DEMO) return b.isDemoCoach(user);
   if (OWNERS.includes(user.email)) return true;
-  try { return (await b.getCoaches()).includes(user.email); } catch { return false; }
+  try {
+    const s = await b.getCoachSettings();
+    if (!(s.emails || []).map(e => e.toLowerCase()).includes(user.email)) return false;
+    return user.emailVerified || (s.uids || []).includes(user.uid) ? true : 'verify';
+  } catch { return false; }
 }
 
 export function errorText(err) {
@@ -45,7 +51,7 @@ async function firebaseBackend() {
   const auth = A.initializeAuth(app, { persistence: [A.indexedDBLocalPersistence, A.browserLocalPersistence] });
   const db = F.getFirestore(app);
   const ref = (...p) => F.doc(db, ...p);
-  const wrap = u => u && { uid: u.uid, email: (u.email || '').toLowerCase() };
+  const wrap = u => u && { uid: u.uid, email: (u.email || '').toLowerCase(), emailVerified: !!u.emailVerified };
   const rows = snap => snap.docs.map(d => ({ id: d.id, ...d.data() }));
   const millis = t => (t && t.toMillis ? t.toMillis() : Date.now());
 
@@ -62,6 +68,7 @@ async function firebaseBackend() {
     },
     reauthenticate: pw => A.reauthenticateWithCredential(auth.currentUser, A.EmailAuthProvider.credential(auth.currentUser.email, pw)),
     deleteAccount: () => A.deleteUser(auth.currentUser),
+    sendVerification: () => A.sendEmailVerification(auth.currentUser),
 
     getProfile: async uid => { const s = await F.getDoc(ref('users', uid)); return s.exists() ? s.data() : null; },
     saveProfile: (uid, data) => F.setDoc(ref('users', uid), data, { merge: true }),
@@ -69,6 +76,16 @@ async function firebaseBackend() {
     addPushToken: (uid, token) => F.updateDoc(ref('users', uid), { pushTokens: F.arrayUnion(token) }),
     removePushToken: (uid, token) => F.updateDoc(ref('users', uid), { pushTokens: F.arrayRemove(token) }),
     setClassReminders: (uid, on) => F.updateDoc(ref('users', uid), { classReminders: !!on }),
+    // Students they've blocked ({ uid: name }): their group chat and journal posts are hidden.
+    setBlocked: (uid, blocked) => F.updateDoc(ref('users', uid), { blocked }),
+    acceptRules: uid => F.updateDoc(ref('users', uid), { rulesAccepted: Date.now() }),
+    // Reported messages go to the head Sensei (reports/{id}).
+    reportMessage: r => F.addDoc(F.collection(db, 'reports'), { ...r, createdAt: F.serverTimestamp() }),
+    watchReports: cb => F.onSnapshot(F.query(F.collection(db, 'reports'), F.orderBy('createdAt', 'desc'), F.limit(100)),
+      snap => cb(rows(snap).map(r => ({ ...r, createdAt: millis(r.createdAt) }))), err => console.error(err)),
+    deleteReport: id => F.deleteDoc(ref('reports', id)),
+    // Deletes a message by its path, e.g. channels/group/messages/{id} or chats/{tid}/messages/{id}.
+    deleteAt: path => F.deleteDoc(F.doc(db, path)),
     // A Sensei's devices, so the Cloud Functions can notify them.
     addCoachDevice: (uid, email, token) => F.setDoc(ref('coachDevices', uid), { email, pushTokens: F.arrayUnion(token), updatedAt: Date.now() }, { merge: true }),
     removeCoachDevice: (uid, email, token) => F.setDoc(ref('coachDevices', uid), { email, pushTokens: F.arrayRemove(token), updatedAt: Date.now() }, { merge: true }),
@@ -258,6 +275,7 @@ function demoBackend() {
     },
     signOut: async () => { store('session', null); emitAuth(); },
     resetPassword: async () => {},
+    sendVerification: async () => {},
     reloadUser: async () => me(),
     reauthenticate: async pw => { if ((accounts()[me().email] || {}).pw !== pw) fail('auth/invalid-credential'); },
     deleteAccount: async () => {
@@ -271,6 +289,16 @@ function demoBackend() {
     addPushToken: async () => {},
     removePushToken: async () => {},
     setClassReminders: async (uid, on) => users.put(uid, { ...(users.all()[uid] || {}), classReminders: !!on }),
+    setBlocked: async (uid, blocked) => users.put(uid, { ...(users.all()[uid] || {}), blocked }),
+    acceptRules: async uid => users.put(uid, { ...(users.all()[uid] || {}), rulesAccepted: Date.now() }),
+    reportMessage: async r => save('reports', [...load('reports', []), { ...r, id: 'r' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5), createdAt: Date.now() }]),
+    watchReports: cb => watch('reports', () => load('reports', []).sort((a, b) => b.createdAt - a.createdAt), cb),
+    deleteReport: async id => save('reports', load('reports', []).filter(r => r.id !== id)),
+    deleteAt: async path => {
+      const [top, a, , id] = path.split('/');
+      const key = top === 'channels' ? 'ch:' + a : 'msgs:' + a;
+      save(key, load(key, []).filter(m => m.id !== id));
+    },
     addCoachDevice: async () => {},
     removeCoachDevice: async () => {},
     listStudents: async () => Object.entries(users.all()).map(([id, u]) => ({ id, ...u })).filter(u => ['student', 'removed', 'declined'].includes(u.role)),

@@ -90,7 +90,30 @@ $('#signout').addEventListener('click', async () => {
   api.signOut();
 });
 $('#denied-signout').addEventListener('click', () => api.signOut());
-$('#recheck').addEventListener('click', () => onAuth(state.user));
+// Check again: reload the account first, so a just-confirmed email counts.
+async function recheck() {
+  if (!state.user) return;
+  let user = state.user;
+  try { user = (await api.reloadUser()) || user; } catch (e) { console.warn(e); }
+  await onAuth(user);
+}
+$('#recheck').addEventListener('click', e => busy(e.currentTarget, recheck));
+$('#resend-verify').addEventListener('click', e => busy(e.currentTarget, async () => {
+  try { await api.sendVerification(); toast('Link sent again to ' + state.user.email); } catch (err) { toast(errorText(err), 'bad'); }
+}));
+// A new Sensei account confirms its email once (see isCoach in backend.js).
+async function showVerify(user) {
+  $('#denied-title').textContent = 'Confirm your email';
+  $('#denied-why').innerHTML = `To keep students’ details safe, new Sensei accounts confirm their email once. We’ve sent a link to <b>${esc(user.email)}</b>: tap it (check your junk folder too), then come back and tap <i>Continue</i>.`;
+  $('#recheck').textContent = 'Continue';
+  $('#resend-verify').hidden = false;
+  show('denied');
+  const k = 'eh-verify-sent:' + user.uid;
+  let sent = null;
+  try { sent = sessionStorage.getItem(k); } catch { /* storage blocked */ }
+  if (sent) return;
+  try { await api.sendVerification(); try { sessionStorage.setItem(k, '1'); } catch { /* storage blocked */ } } catch (err) { console.warn(err); }
+}
 
 // ---- notifications for Sensei: students' messages, join requests and PayPal payments ----
 const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
@@ -129,8 +152,13 @@ async function onAuth(user) {
   state.requests = null;
   state.user = user;
   if (!user) { show('auth'); return; }
-  if (!(await isCoach(user))) {
-    $('#denied-why').innerHTML = `<b>${esc(user.email)}</b> isn’t on the Sensei list. Ask a head Sensei to add it under <i>Sensei</i>, then tap “Check again”.`;
+  const coach = await isCoach(user);
+  if (coach === 'verify') { showVerify(user); return; }
+  if (!coach) {
+    $('#denied-title').textContent = 'Not a Sensei account yet';
+    $('#denied-why').innerHTML = `<b>${esc(user.email)}</b> isn’t on the Sensei list. Ask the head Sensei to add it under <i>Sensei</i>, then tap “Check again”.`;
+    $('#recheck').textContent = 'Check again';
+    $('#resend-verify').hidden = true;
     show('denied');
     return;
   }
@@ -149,10 +177,16 @@ async function onAuth(user) {
   state.stops.push(api.watchRequests(onRequests));
   state.myKey = senseiKey(user.email);
   state.isHead = OWNER_EMAILS.map(e => e.toLowerCase()).includes(user.email);
+  state.reports = [];
+  drawReports();
+  if (state.isHead) state.stops.push(api.watchReports(list => { state.reports = list; drawReports(); }));
   state.stops.push(api.watchChats(list => { state.chats = list; drawChatList(); drawMenuCount(); }, state.isHead ? null : state.myKey));
   loadSenseis();
   await loadStudents();
   await loadYear(ed.year);
+  state.calYears = await api.listCalendarYears().catch(() => null);
+  if (state.calYears) state.calYears = [...state.calYears, 2026];
+  drawHome();
   const start = location.hash.slice(1);
   const chosen = ['home', 'requests', 'menu', 'notices', 'homework', 'payments', 'students', 'licences', 'register', 'medals', 'calendar', 'coaches'].includes(start);
   if (start === 'payments') loadPayments();
@@ -602,8 +636,8 @@ function markOpenRead() {
 }
 document.addEventListener('visibilitychange', () => {
   if (state.open) markOpenRead();
-  // Back on the "not a Sensei account" screen: check again in case they've been added.
-  if (!document.hidden && state.user && !$('#view-denied').hidden) onAuth(state.user);
+  // Back on the "not a Sensei account" or "confirm your email" screen: check again.
+  if (!document.hidden && state.user && !$('#view-denied').hidden) recheck();
 });
 
 const replyText = $('#reply-text');
@@ -828,6 +862,7 @@ $('#ed-year-select').addEventListener('change', async e => {
 $('#publish').addEventListener('click', e => busy(e.currentTarget, async () => {
   try {
     await api.saveCalendar(ed.year, { days: ed.days, timings: ed.timings, pdf: ed.pdf });
+    if (state.calYears && !state.calYears.includes(ed.year)) state.calYears.push(ed.year);
     ed.dirty = false; ed.published = true;
     drawEditor();
     toast(`${ed.year} calendar published — students can see it now`);
@@ -878,19 +913,23 @@ addEventListener('beforeunload', e => { if (ed.dirty) { e.preventDefault(); e.re
 async function drawCoaches() {
   $('#owners').innerHTML = OWNER_EMAILS.map(e => `<li>${esc(e)}</li>`).join('');
   const list = await api.getCoaches().catch(() => []);
+  // Only the head Sensei adds or removes Sensei (the security rules agree).
+  $('#coach-add').hidden = !state.isHead;
+  $('#coach-headonly').hidden = !!state.isHead;
   $('#coach-list').innerHTML = list.length
-    ? list.map(e => `<li>${esc(e)} <button type="button" class="linkish danger" data-uncoach="${esc(e)}">Remove</button></li>`).join('')
+    ? list.map(e => `<li>${esc(e)}${state.isHead ? ` <button type="button" class="linkish danger" data-uncoach="${esc(e)}">Remove</button>` : ''}</li>`).join('')
     : '<li class="muted">No extra Sensei yet.</li>';
 }
 $('#form-coaches').addEventListener('submit', async e => {
   e.preventDefault();
+  if (!state.isHead) return;
   const email = e.target.email.value.trim().toLowerCase();
   if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return toast('Please enter a valid email', 'bad');
   try {
     const list = await api.getCoaches();
     if (!list.includes(email)) await api.saveCoaches([...list, email]);
     e.target.email.value = '';
-    toast(email + ' can now create a Sensei account');
+    toast(email + ' can now create a Sensei account (they’ll confirm their email once)');
     drawCoaches();
   } catch (err) { toast(errorText(err), 'bad'); }
 });
@@ -1019,6 +1058,13 @@ function nextClassDay() {
     .sort(([a], [b]) => a.localeCompare(b)).map(([key, d]) => ({ key, ...d }))[0];
 }
 let heroTimer;
+// From November, next year's calendar should be published (and this year's, if it somehow isn't).
+function calNeeded() {
+  if (!state.calYears) return 0;
+  const now = new Date();
+  const year = now.getMonth() >= 10 ? now.getFullYear() + 1 : now.getFullYear();
+  return state.calYears.includes(year) ? 0 : year;
+}
 function drawHome() {
   if (!state.user || state.view !== 'home') return;
   const students = (state.students || []).filter(s => s.role === 'student');
@@ -1059,6 +1105,7 @@ function drawHome() {
     ...requests.map(r => ({ go: 'requests', icon: '入', b: `${esc(r.name)} wants to join`, small: [DOJOS[r.dojo], GRADES[r.grade]].filter(Boolean).join(' · ') })),
     ...unreadChats.map(c => ({ chat: c.id, icon: '話', b: `${esc(c.name || 'A student')}: ${unreadCount(c)} new message${unreadCount(c) === 1 ? '' : 's'}`, small: esc(c.lastText || '') })),
     ...(unpaid.length && students.length ? [{ go: 'payments', icon: '£', b: `${unpaid.length} unpaid for ${monthName(monthKey())}`, small: unpaid.slice(0, 4).map(s => esc(s.name)).join(', ') + (unpaid.length > 4 ? '…' : '') }] : []),
+    ...(calNeeded() ? [{ go: 'calendar', icon: '道', b: `Publish the ${calNeeded()} calendar`, small: 'Until you do, students see every Thursday as a class, with no closures or gradings.' }] : []),
   ];
   $('#home-todo').innerHTML = todo.length ? todo.slice(0, 8).map(t => `<button type="button" class="todo-item"${t.go ? ` data-go="${t.go}"` : ` data-openchat="${esc(t.chat)}"`}>
       <span class="quick-icon">${t.icon}</span><span><b>${t.b}</b><small>${t.small}</small></span><span class="sched-go" aria-hidden="true">›</span></button>`).join('')
@@ -1082,6 +1129,35 @@ $('#hero-dots').addEventListener('click', e => {
   const d = e.target.closest('[data-dot]');
   if (d) $('#hero-slides').scrollTo({ left: +d.dataset.dot * $('#hero-slides').clientWidth, behavior: 'smooth' });
 });
+// ---- Reported messages (head Sensei only) ----
+const REPORT_WHERE = { group: 'Group chat', journal: 'Training journal', chat: 'Private chat' };
+function drawReports() {
+  const list = state.reports || [];
+  $('#home-reports').hidden = !list.length;
+  $('#report-list').innerHTML = list.map(r => `<article class="card report">
+      <p class="eyebrow">${esc(REPORT_WHERE[r.where] || 'Chat')} · reported ${timeAgo(r.createdAt)}</p>
+      <p><b>${esc(r.byName || 'Someone')}</b> reported a message from <b>${esc(r.author || 'someone')}</b>${r.reason ? ': ' + esc(r.reason) : ''}</p>
+      <blockquote class="report-text">${esc(r.text || '').replace(/\n/g, '<br>')}</blockquote>
+      <p class="row-actions"><button type="button" class="linkish danger" data-rep-del="${esc(r.id)}">Delete the message</button>
+        ${r.where === 'chat' ? ` · <button type="button" class="linkish" data-openchat="${esc((r.path || '').split('/')[1] || '')}">Open the chat</button>` : ''}
+        · <button type="button" class="linkish" data-rep-dismiss="${esc(r.id)}">Dismiss</button></p>
+    </article>`).join('');
+}
+$('#report-list').addEventListener('click', async e => {
+  const del = e.target.closest('[data-rep-del]');
+  const dismiss = e.target.closest('[data-rep-dismiss]');
+  const open = e.target.closest('[data-openchat]');
+  if (open) { show('menu'); history.replaceState(null, '', '#menu'); openChat(open.dataset.openchat); return; }
+  const r = (state.reports || []).find(x => x.id === (del || dismiss || {}).dataset?.[del ? 'repDel' : 'repDismiss']);
+  if (!r) return;
+  if (del && !confirm('Delete this message for everyone?')) return;
+  try {
+    if (del && r.path) await api.deleteAt(r.path);
+    await api.deleteReport(r.id);
+    toast(del ? 'Message deleted' : 'Report dismissed');
+  } catch (err) { toast(errorText(err), 'bad'); }
+});
+
 $('#home-todo').addEventListener('click', e => {
   const b = e.target.closest('[data-openchat]');
   if (!b) return;

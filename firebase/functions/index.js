@@ -2,12 +2,13 @@
 // and fee reminders) and to Sensei (students' messages, join requests, PayPal payments), on the
 // phone apps and, via web push, the website / home-screen apps. Deploy with `firebase deploy --only functions`
 // (see README.md). Needs the Firebase Blaze plan.
-const { onDocumentCreated } = require('firebase-functions/v2/firestore');
+const { onDocumentCreated, onDocumentDeleted } = require('firebase-functions/v2/firestore');
 const { onRequest } = require('firebase-functions/v2/https');
 const { onSchedule } = require('firebase-functions/v2/scheduler');
 const { initializeApp } = require('firebase-admin/app');
 const { getFirestore, FieldValue } = require('firebase-admin/firestore');
 const { getMessaging } = require('firebase-admin/messaging');
+const { removeUserData } = require('./cleanup');
 
 initializeApp();
 
@@ -123,6 +124,22 @@ exports.pushJoinRequest = onDocumentCreated({ document: 'users/{uid}', region: '
   const u = event.data.data();
   if (u.role !== 'pending') return;
   await pushToCoaches({ title: 'New join request', body: `${u.name || 'Someone'} would like to join EmptyHands.` }, { request: event.params.uid }, 'requests');
+});
+
+// A student or Sensei reported a message: tell the head Sensei only (reports can quote private chats).
+exports.pushReport = onDocumentCreated({ document: 'reports/{id}', region: REGION }, async event => {
+  const r = event.data.data();
+  const where = { group: 'the group chat', journal: 'the training journal', chat: 'a private chat' }[r.where] || 'a chat';
+  await pushToCoaches({ title: 'Message reported', body: `${r.byName || 'Someone'} reported a message from ${r.author || 'someone'} in ${where}: ${r.reason || ''}` },
+    { report: event.params.id }, 'home', senseiKey(OWNER_EMAIL));
+});
+
+// Someone deleted their account in the app (the app deletes users/{uid}, then the sign-in; Sensei
+// never delete profiles, they mark them removed or declined): delete what the app kept about them,
+// apart from payment records, which the dojo keeps for its accounts (as the privacy policy says).
+exports.cleanUpDeletedUser = onDocumentDeleted({ document: 'users/{uid}', region: REGION }, async event => {
+  const done = await removeUserData(getFirestore(), event.params.uid);
+  console.log('Removed data for a deleted account', JSON.stringify(done));
 });
 
 // A PayPal payment came in.

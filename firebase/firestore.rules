@@ -10,12 +10,18 @@ service cloud.firestore {
 
     function signedIn() { return request.auth != null; }
     function email() { return request.auth.token.email.lower(); }
-    function coachList() {
+    function coachSettings() {
       return exists(/databases/$(database)/documents/settings/coaches)
-        ? get(/databases/$(database)/documents/settings/coaches).data.emails : [];
+        ? get(/databases/$(database)/documents/settings/coaches).data : {};
+    }
+    // A listed Sensei must have confirmed their email, so no one else can claim a listed address
+    // before that Sensei signs up. Accounts that existed before this check are listed in uids.
+    function listedCoach(s) {
+      return email() in s.get('emails', [])
+        && (request.auth.token.email_verified == true || request.auth.uid in s.get('uids', []));
     }
     function isCoach() {
-      return signedIn() && (email() in OWNERS() || email() in coachList());
+      return signedIn() && (email() in OWNERS() || listedCoach(coachSettings()));
     }
     function isStudent() {
       return signedIn() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'student';
@@ -47,8 +53,9 @@ service cloud.firestore {
       allow read: if signedIn() && (request.auth.uid == uid || isCoach());
       // Sign-up: only the normal profile fields, as a join request.
       allow create: if signedIn() && request.auth.uid == uid
-        && request.resource.data.keys().hasOnly(['name', 'guardian', 'phone', 'disciplines', 'dojo', 'grade', 'email', 'role', 'createdAt', 'lastRead'])
+        && request.resource.data.keys().hasOnly(['name', 'guardian', 'phone', 'disciplines', 'dojo', 'grade', 'email', 'role', 'createdAt', 'lastRead', 'rulesAccepted'])
         && request.resource.data.role == 'pending'
+        && request.resource.data.get('rulesAccepted', 0) is number
         && request.resource.data.email == email()
         && validProfile(request.resource.data);
       // Students can only change their own details and app state, never their role, exemption
@@ -56,11 +63,13 @@ service cloud.firestore {
       allow update: if isCoach()
         || (signedIn() && request.auth.uid == uid
             && request.resource.data.diff(resource.data).affectedKeys()
-                 .hasOnly(['name', 'guardian', 'phone', 'disciplines', 'dojo', 'grade', 'lastRead', 'seen', 'pushTokens', 'homeworkDone', 'classReminders'])
+                 .hasOnly(['name', 'guardian', 'phone', 'disciplines', 'dojo', 'grade', 'lastRead', 'seen', 'pushTokens', 'homeworkDone', 'classReminders', 'blocked', 'rulesAccepted'])
             && (resource.data.role == 'pending' || !request.resource.data.diff(resource.data).affectedKeys().hasAny(['grade']))
             && validProfile(request.resource.data)
             && request.resource.data.get('pushTokens', []).size() <= 20
-            && request.resource.data.get('classReminders', true) is bool);
+            && request.resource.data.get('classReminders', true) is bool
+            && request.resource.data.get('blocked', {}) is map && request.resource.data.get('blocked', {}).size() <= 200
+            && request.resource.data.get('rulesAccepted', 0) is number);
       allow delete: if isCoach() || (signedIn() && request.auth.uid == uid);
     }
 
@@ -217,10 +226,31 @@ service cloud.firestore {
         && request.resource.data.pushTokens is list && request.resource.data.pushTokens.size() <= 20;
     }
 
-    // Coach list: coaches manage it.
+    // Sensei list: only the head Sensei adds or removes Sensei (and uids, set by the deploy).
+    // Every Sensei can set the name students see for them.
     match /settings/coaches {
       allow read: if signedIn();
-      allow write: if isCoach();
+      allow write: if isOwner() || (isCoach() && resource != null
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['names'])
+        && request.resource.data.names.diff(resource.data.get('names', {})).affectedKeys().hasOnly([myKey()])
+        && request.resource.data.names[myKey()] is string && request.resource.data.names[myKey()].size() <= 60);
+    }
+
+    // Reported messages: any accepted student or Sensei can report one; only the head Sensei
+    // sees reports (they may quote private chats) and deals with them.
+    match /reports/{id} {
+      allow create: if (isStudent() || isCoach())
+        && request.resource.data.keys().hasOnly(['by', 'byName', 'where', 'path', 'author', 'authorUid', 'text', 'reason', 'createdAt'])
+        && request.resource.data.by == request.auth.uid
+        && request.resource.data.byName is string && request.resource.data.byName.size() <= 120
+        && request.resource.data.where in ['group', 'journal', 'chat']
+        && request.resource.data.path is string && request.resource.data.path.size() <= 300
+        && request.resource.data.author is string && request.resource.data.author.size() <= 120
+        && request.resource.data.authorUid is string && request.resource.data.authorUid.size() <= 128
+        && request.resource.data.text is string && request.resource.data.text.size() <= 2000
+        && request.resource.data.reason is string && request.resource.data.reason.size() <= 500
+        && request.resource.data.createdAt == request.time;
+      allow read, delete: if isOwner();
     }
   }
 }
