@@ -4,7 +4,7 @@ import { webPushReady, webPushToken } from './webpush.js';
 import {
   $, $$, esc, GRADES, DISCIPLINES, DOJOS, AUDIENCES, renderYear, legendHTML, loadCalendar, calendarYears,
   noticeIsFor, homeworkIsFor, DEFAULT_FEES, FEE_GROUPS, FEE_LEVELS, paypalLink, longDate,
-  TYPES, todayKey, whenText, monthKey, monthName, isMonthly, monthlyFeeFor, money, PAY_METHODS, shortDate, timeAgo, keyOf, download, toast, busy, messageHTML, wireEdits, editing, licenceHTML, licenceFromForm, senseiKey, threadId, threadParts, senseiList, MEDALS, MEDAL_REASONS, medalHTML,
+  TYPES, todayKey, whenText, monthKey, monthName, isMonthly, monthlyFeeFor, onApplication, money, PAY_METHODS, shortDate, timeAgo, keyOf, download, toast, busy, messageHTML, wireEdits, editing, licenceHTML, licenceFromForm, senseiKey, threadId, threadParts, senseiList, MEDALS, MEDAL_REASONS, medalHTML,
 } from './common.js';
 
 let api;
@@ -362,7 +362,7 @@ function drawPaid() {
   rows.sort((a, b) => !!a.pmt - !!b.pmt || !!a.s.feesExempt - !!b.s.feesExempt || a.s.name.localeCompare(b.s.name));
   $('#paid-rows').innerHTML = rows.map(({ s, pmt }) => `<tr>
     <td data-th="Student"><b>${esc(s.name)}</b>${s.guardian ? `<small>Parent: ${esc(s.guardian)}</small>` : ''}</td>
-    <td data-th="Belt">${GRADES[s.grade] || '—'}</td>
+    <td data-th="Belt">${GRADES[s.grade] || '—'}${feeLine(s)}</td>
     <td data-th="Status">${s.feesExempt ? '<span class="tag">Exempt</span>'
       : pmt ? `<span class="tag tag--ok">Paid</span> ${money(pmt.amount)} · ${PAY_METHODS[pmt.method] || ''} · ${new Date(pmt.at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}`
       : `<span class="tag tag--seal">Unpaid</span>${reminded(s) ? ` <small>reminded ${timeAgo(reminded(s))}</small>` : ''}`}</td>
@@ -373,6 +373,44 @@ function drawPaid() {
   const strays = (pay.list || []).filter(x => !x.uid || !state.students.some(s => s.id === x.uid));
   $('#unmatched').innerHTML = strays.length ? `<h3>PayPal payments not linked to a student</h3><ul class="plain">${strays.map(x => `<li><span>${money(x.amount)} · ${esc(x.feeName || '')} · ${esc(x.payer || '')}</span><button class="linkish danger" data-unpay="${esc(x.id)}">Remove</button></li>`).join('')}</ul>` : '';
 }
+// Brown belt and above: "£45 a month · Change", or "On application · Set fee".
+function feeLine(s) {
+  if (!onApplication(s)) return '';
+  const n = Number(s.monthlyFee) || 0;
+  return `<small class="fee-line">${n > 0 ? `${money(n)} a month` : 'Fee on application'} · <button type="button" class="linkish" data-setfee="${esc(s.id)}">${n > 0 ? 'Change' : 'Set fee'}</button></small>`;
+}
+let feeFor = null;
+document.addEventListener('click', e => {
+  const b = e.target.closest('[data-setfee]');
+  if (!b) return;
+  feeFor = state.students.find(x => x.id === b.dataset.setfee);
+  if (!feeFor) return;
+  const f = $('#form-fee');
+  f.reset();
+  showError(f);
+  f.amount.value = Number(feeFor.monthlyFee) > 0 ? feeFor.monthlyFee : '';
+  $('#fee-title').textContent = `${feeFor.name}’s monthly fee`;
+  $('#fee-clear').hidden = !(Number(feeFor.monthlyFee) > 0);
+  $('#fee-dialog').showModal();
+});
+$('#form-fee').addEventListener('submit', async e => {
+  const v = e.submitter && e.submitter.value;
+  if (v === 'cancel' || !feeFor) return;
+  e.preventDefault();
+  const f = e.target;
+  const amount = v === 'clear' ? 0 : Math.round(Number(f.amount.value) * 100) / 100;
+  if (v !== 'clear' && !(amount >= 1 && amount <= 500)) return showError(f, 'Please enter a monthly fee between £1 and £500.');
+  await busy(f.querySelector(`[value=${v === 'clear' ? 'clear' : 'save'}]`), async () => {
+    try {
+      await api.saveProfile(feeFor.id, { monthlyFee: amount });
+      feeFor.monthlyFee = amount;
+      $('#fee-dialog').close();
+      toast(amount ? `${feeFor.name} pays ${money(amount)} a month. They can pay it in the app now.` : `${feeFor.name}’s fee is back to “on application”`);
+      drawPaid(); drawStudents();
+    } catch (err) { showError(f, errorText(err)); }
+  });
+});
+
 async function remind(s) {
   const author = savedName() || 'Sensei';
   const text = `Hi ${s.name.split(' ')[0]}, just a reminder that your ${monthName(pay.month)} fees haven’t been paid yet. You can pay in the app under Home → Pay fees, or at the dojo. Thank you!`;
@@ -734,7 +772,7 @@ function drawStudents() {
     <td data-th="Dojo">${DOJOS[s.dojo] || '—'}</td>
     <td data-th="Belt">${s.role === 'student'
       ? `<select class="belt-select" data-belt="${esc(s.id)}" aria-label="Belt for ${esc(s.name)}">${Object.entries(GRADES).map(([k, v]) => `<option value="${k}"${k === (s.grade || 'none') ? ' selected' : ''}>${v}</option>`).join('')}</select>`
-      : GRADES[s.grade] || '—'}</td>
+      : GRADES[s.grade] || '—'}${s.role === 'student' ? feeLine(s) : ''}</td>
     <td data-th="Contact"><a href="mailto:${esc(s.email)}">${esc(s.email)}</a>${s.phone ? `<small><a href="tel:${esc(s.phone)}">${esc(s.phone)}</a></small>` : ''}</td>
     <td data-th="Joined">${s.createdAt ? new Date(s.createdAt).toLocaleDateString('en-GB') : '—'}</td>
     <td>${s.role !== 'student'
@@ -757,7 +795,7 @@ $('#student-rows').addEventListener('change', async e => {
     await api.saveProfile(s.id, { grade: sel.value, gradeChangedAt: Date.now() });
     s.grade = sel.value;
     toast(`${s.name} is now ${GRADES[sel.value]}`);
-    drawReach(); drawHomeworkAdmin();
+    drawReach(); drawHomeworkAdmin(); drawStudents(); drawPaid(); // brown belt and above get "Set fee"
     if (state.open && threadParts(state.open).student === s.id) openChat(state.open);
   } catch (err) { sel.value = before; toast(errorText(err), 'bad'); }
   sel.disabled = false;

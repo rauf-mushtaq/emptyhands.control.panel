@@ -765,3 +765,5 @@ dialog.sheet { max-height: calc(100dvh - 32px); overflow-y: auto; }
 }
 .lic-swipe { display: none; margin: 0 0 6px; font-size: .82rem; color: var(--ink-3); }
 @media (max-width: 680px) { .lic-swipe { display: block; } }
+.fee-line { display: block; margin-top: 4px; color: var(--ink-3); }
+.fee-line .linkish { font-size: inherit; }

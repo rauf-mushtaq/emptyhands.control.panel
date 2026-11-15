@@ -205,7 +205,7 @@
       <div class="card-head"><h2>Who has paid <small id="paid-summary"></small></h2>
         <span class="view-actions"><label class="sr-only" for="paid-month">Month</label><select id="paid-month"></select>
         <button class="btn btn--seal btn--sm" id="remind-all" type="button">Remind everyone unpaid</button></span></div>
-      <p class="muted fine">Monthly fees for the month shown. PayPal payments made in the student app are marked paid automatically; tick <b>Mark paid</b> for cash or bank transfers. <b>Remind</b> sends a private message in EmptyHands chats, which also arrives as a phone notification.</p>
+      <p class="muted fine">Monthly fees for the month shown. PayPal payments made in the student app are marked paid automatically; tick <b>Mark paid</b> for cash or bank transfers. Brown belts and above pay a fee on application: tap <b>Set fee</b> to put how much they pay each month. <b>Remind</b> sends a private message in EmptyHands chats, which also arrives as a phone notification.</p>
       <div class="table-wrap"><table class="students">
         <thead><tr><th>Student</th><th>Belt</th><th>Status</th><th><span class="sr-only">Actions</span></th></tr></thead>
         <tbody id="paid-rows"></tbody></table></div>
@@ -453,6 +453,17 @@
     <label>How they paid<select name="method"><option value="cash">Cash</option><option value="bank">Bank transfer</option><option value="paypal">PayPal</option><option value="other">Other</option></select></label>
     <p class="form-error" hidden></p>
     <div class="row-actions"><button class="btn btn--seal" value="save">Mark as paid</button><button class="btn btn--ghost" value="cancel" formnovalidate>Cancel</button></div>
+  </form>
+</dialog>
+
+<dialog id="fee-dialog" class="sheet">
+  <form method="dialog" class="stack" id="form-fee">
+    <p class="eyebrow">Monthly fee · on application</p>
+    <h2 id="fee-title">Monthly fee</h2>
+    <p class="muted fine">Brown belt and above pay a monthly Karate fee agreed with Sensei. Once it’s set, the student sees it on their <b>Pay fees</b> page and can pay it with PayPal or a card, and it’s marked paid automatically.</p>
+    <label>Monthly fee (£)<input name="amount" type="number" min="1" max="500" step="0.5" required></label>
+    <p class="form-error" hidden></p>
+    <div class="row-actions"><button class="btn btn--seal" value="save">Save</button><button class="btn btn--ghost" value="clear" formnovalidate id="fee-clear">Back to “on application”</button><button class="btn btn--ghost" value="cancel" formnovalidate>Cancel</button></div>
   </form>
 </dialog>
 

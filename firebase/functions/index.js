@@ -239,7 +239,10 @@ exports.paypalIpn = onRequest({ region: REGION, invoker: 'public' }, async (req,
   if (!/^[A-Z0-9]{6,30}$/i.test(txn)) return res.status(200).end();
   const [uid, feeId, month] = (p.get('custom') || '').split('|');
   const user = uid && /^[A-Za-z0-9]{10,40}$/.test(uid) ? await db.doc('users/' + uid).get() : null;
-  const fee = (settings.fees || []).find(f => f.id === feeId);
+  // 'agreed': the monthly fee Sensei set for this student (brown belt and above, "on application").
+  const agreed = feeId === 'agreed' && user && user.exists ? Number(user.data().monthlyFee) || 0 : 0;
+  const fee = agreed ? { id: 'agreed', name: 'Karate monthly — agreed with Sensei', per: 'month', price: agreed }
+    : (settings.fees || []).find(f => f.id === feeId);
   const amount = Number(p.get('mc_gross')) || 0;
   // Only counts as the monthly fee if it's a per-month fee paid in full.
   const monthly = !!fee && fee.per === 'month' && amount + 0.001 >= Number(fee.price);

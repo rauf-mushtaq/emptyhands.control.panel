@@ -230,10 +230,17 @@ export const monthName = key => { const [y, m] = key.split('-').map(Number); ret
 export const PAY_METHODS = { paypal: 'PayPal', cash: 'Cash', bank: 'Bank transfer', other: 'Other' };
 // A payment counts towards the monthly fee if it's for a per-month fee, or marked by Sensei as monthly.
 export const isMonthly = pmt => pmt.kind === 'monthly';
+// Brown belt and above pay a monthly fee agreed with Sensei, who sets it per student
+// (users/{uid}.monthlyFee). Until then the student app shows "On application".
+export const onApplication = p => feeLevel(p.grade) === 'application';
+export function agreedFee(p) {
+  const n = Number(p && p.monthlyFee);
+  return n > 0 ? { id: 'agreed', group: 'karate', name: 'Karate monthly — agreed with Sensei', price: n, per: 'month', level: 'application' } : null;
+}
 // The monthly Karate fee for a belt, for Sensei's "Mark paid" default.
 export function monthlyFeeFor(fees, p) {
   const lvl = feeLevel(p.grade);
-  if (lvl === 'application') return null;
+  if (lvl === 'application') return agreedFee(p);
   return fees.find(f => f.per === 'month' && f.level === lvl && (p.disciplines || []).includes(f.group))
     || fees.find(f => f.per === 'month' && (p.disciplines || []).includes(f.group))
     || fees.find(f => f.per === 'month');
