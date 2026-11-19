@@ -87,7 +87,10 @@
     <div class="hero">
       <div class="hero-top">
         <button type="button" class="hero-round" data-open-menu aria-label="Menu"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 7h14M5 12h14M5 17h14"/></svg></button>
-        <button type="button" class="hero-pill" data-go="students" id="hero-count">Students <span aria-hidden="true">›</span></button>
+        <div class="hero-right">
+          <button type="button" class="hero-pill" data-go="students" id="hero-count">Students <span aria-hidden="true">›</span></button>
+          <button type="button" class="hero-pill hero-notify" data-notify-on hidden><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 16V11a6 6 0 0 1 12 0v5l1.5 2h-15z"/><path d="M10 20.5a2.2 2.2 0 0 0 4 0"/></svg><span>Turn on notifications</span></button>
+        </div>
       </div>
       <div class="hero-slides" id="hero-slides" aria-roledescription="carousel"></div>
       <div class="hero-dots" id="hero-dots"></div>
@@ -130,7 +133,6 @@
 
   <!-- EmptyHands chats: one private chat per student -->
   <section class="view" id="view-menu" hidden>
-    <button class="btn btn--ghost btn--sm notify-quick" type="button" data-notify-on hidden>Turn on notifications</button>
     <div class="channels menu-switch" role="tablist" aria-label="EmptyHands chats">
       <button type="button" role="tab" data-cm="private" aria-selected="true"><span class="ch-full">Private messages</span><span class="ch-short">Private</span><span class="dot" hidden></span></button>
       <button type="button" role="tab" data-cm="group" aria-selected="false"><span class="ch-full">Group chat</span><span class="ch-short">Group</span></button>
