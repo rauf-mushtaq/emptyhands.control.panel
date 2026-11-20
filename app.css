@@ -402,6 +402,9 @@ button.app-user[aria-current] { background: var(--ink); color: var(--paper); }
 .channels button { flex: none; border: 1px solid var(--paper-3); background: #fff; border-radius: 99px; padding: 8px 14px; font-weight: 700; font-size: .88rem; cursor: pointer; position: relative; color: var(--ink-2); }
 .channels button { transition: background-color .2s, color .2s, border-color .2s; }
 .channels button[aria-selected=true] { background: var(--ink); border-color: var(--ink); color: var(--paper); }
+.syl-tabs { margin-bottom: 14px; flex-wrap: nowrap; gap: 6px; }
+.syl-tabs .chip { padding: 8px 11px; font-size: .92rem; white-space: nowrap; }
+.syl-tabs .chip[aria-selected=true] { background: var(--ink); border-color: var(--ink); color: var(--paper); }
 .channels .dot { position: absolute; top: 4px; right: 6px; width: 8px; height: 8px; border-radius: 50%; background: var(--seal); }
 .recommend { border-top: 4px solid var(--seal); }
 .recommend h2 { font-size: 1.15rem; }
