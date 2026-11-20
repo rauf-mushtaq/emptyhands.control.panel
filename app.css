@@ -17,10 +17,10 @@
   --warn: #9a5b12;
 
   /* Calendar key — matches the colours on the printed dojo calendar. */
-  --c-training: #c4ac7c;
-  --c-closed: #b8382c;
+  --c-training: #f3d63a;
+  --c-closed: #d23a2c;
   --c-blackbelt: #1c1a16;
-  --c-grading: #8c7b58;
+  --c-grading: #ec9a2a;
 
   --serif: "Shippori Mincho", "Hiragino Mincho ProN", "Yu Mincho", Georgia, serif;
   --sans: "Karla", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
@@ -214,14 +214,6 @@ legend { font-weight: 700; font-size: .9rem; margin-bottom: 6px; }
 .swatch.t-note { background: #fff; border: 2px solid var(--bronze); border-radius: 50%; }
 .swatch.t-clear { background: #fff; border: 1px dashed var(--ink-3); }
 .t-training, .cal-day.t-training { background: var(--c-training); color: var(--ink); }
-.cal-day[class*="t-"]:not(.is-hidden-type) { border-radius: 50%; font-weight: 700; }
-.cal-day.t-grading { box-shadow: 0 0 0 2px #fffdf8, 0 0 0 3.5px var(--c-grading); color: #fff; }
-.swatch[class*="t-"] { border-radius: 50%; }
-#view-calendar h1 span { color: var(--bronze-2); }
-.cal-bar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 14px; }
-.cal-bar select { width: auto; min-height: 38px; padding: 6px 10px; }
-.keydates-group { border-radius: 16px; background: #fffdf8; }
-.keydates-group li time { color: var(--seal); }
 .t-closed, .cal-day.t-closed { background: var(--c-closed); color: #fff; }
 .t-blackbelt, .cal-day.t-blackbelt { background: var(--c-blackbelt); color: #fff; }
 .t-grading, .cal-day.t-grading { background: var(--c-grading); color: var(--ink); }
@@ -235,11 +227,9 @@ legend { font-weight: 700; font-size: .9rem; margin-bottom: 6px; }
 .switch input:checked + span::after { transform: translateX(18px); }
 .switch input:focus-visible + span { outline: 2px solid var(--seal); outline-offset: 2px; }
 
-.cal-year { display: grid; gap: 14px; grid-template-columns: repeat(auto-fill, minmax(min(100%, 240px), 1fr)); margin-bottom: 18px; }
+.cal-year { display: grid; gap: 14px; grid-template-columns: repeat(auto-fill, minmax(min(100%, 272px), 1fr)); margin-bottom: 18px; }
 .cal-month { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); padding: 14px 12px 12px; scroll-margin-top: 80px; }
-.cal-month { border-radius: 16px; background: #fffdf8; padding: 14px 14px 12px; }
-.cal-month h3 { display: flex; justify-content: space-between; align-items: baseline; font-family: var(--serif); font-size: 1.35rem; font-weight: 600; color: var(--ink); margin: 0 0 8px 2px; }
-.cal-month h3 small { font-family: var(--sans); font-size: .62rem; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; color: var(--ink-3); }
+.cal-month h3 { text-transform: uppercase; letter-spacing: .12em; font-family: var(--sans); font-size: .8rem; font-weight: 700; color: var(--bronze); margin: 0 0 8px 4px; }
 .cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 3px; }
 .cal-dow { text-align: center; font-size: .7rem; font-weight: 700; color: var(--ink-3); padding-bottom: 2px; }
 .cal-day {

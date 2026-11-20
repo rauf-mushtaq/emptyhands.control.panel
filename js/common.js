@@ -325,11 +325,9 @@ export function renderYear(el, year, opts = {}) {
     const lead = (first.getDay() + 6) % 7;
     const count = new Date(year, m + 1, 0).getDate();
     let cells = '<span class="cal-blank"></span>'.repeat(lead);
-    let classes = 0;
     for (let d = 1; d <= count; d++) {
       const key = year + '-' + pad(m + 1) + '-' + pad(d);
       const entry = days[key];
-      if (entry && entry.type === 'training') classes++;
       const cls = ['cal-day'];
       let label = longDate(key);
       if (entry && entry.type) {
@@ -348,7 +346,7 @@ export function renderYear(el, year, opts = {}) {
         ? `<button type="button" class="${cls.join(' ')}" data-key="${key}" aria-label="${esc(label)}">${d}</button>`
         : `<span class="${cls.join(' ')}">${d}</span>`;
     }
-    return `<section class="cal-month" id="m-${year}-${m + 1}"><h3>${name}<small>${classes} class${classes === 1 ? '' : 'es'}</small></h3>
+    return `<section class="cal-month" id="m-${year}-${m + 1}"><h3>${name}</h3>
       <div class="cal-grid">${DOW.map(w => `<span class="cal-dow">${w[0]}<span class="sr-only">${w.slice(1)}</span></span>`).join('')}${cells}</div></section>`;
   }).join('');
   if (opts.onDay) el.onclick = e => { const b = e.target.closest('button.cal-day'); if (b) opts.onDay(b.dataset.key, b); };
