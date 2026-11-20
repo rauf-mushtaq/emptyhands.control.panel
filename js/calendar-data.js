@@ -1,6 +1,6 @@
-// The 2026 and 2027 dojo calendars, taken from the printed PDFs (emptyhands.student: assets/docs/).
-// Used until a coach publishes that year's calendar from the coach panel, and as the
-// starting point the coach panel loads for it.
+// The 2026 dojo calendar, taken from the printed PDF (emptyhands.student: assets/docs/).
+// Used until a coach publishes the 2026 calendar from the coach panel, and as the
+// starting point the coach panel loads for 2026.
 
 const md = (list, type, year = 2026) => Object.fromEntries(list.map(d => [year + '-' + d, { type }]));
 // Closed days with a reason: { 'MM-DD': 'reason' }.
@@ -31,29 +31,5 @@ export const CALENDAR_2026 = {
       '08-31': 'Summer bank holiday', '12-25': 'Christmas Day', '12-28': 'Boxing Day (bank holiday)' }),
     ...md(['02-08', '04-26', '07-05', '08-02', '09-06', '10-04', '11-15'], 'blackbelt'),
     ...md(['04-30', '08-06', '11-28'], 'grading'),
-  },
-};
-
-export const CALENDAR_2027 = {
-  year: 2027,
-  timings: DEFAULT_TIMINGS,
-  pdf: 'https://app.emptyhands.co.uk/assets/docs/EmptyHands-Dojo-Calendar-2027.pdf',
-  days: {
-    ...md(['01-07', '01-14', '01-21', '01-28', '02-04', '02-11', '02-18', '03-11', '03-18', '04-01',
-      '04-08', '04-15', '04-22', '05-06', '05-13', '05-20', '05-27', '06-03', '06-10', '06-17',
-      '06-24', '07-01', '07-08', '07-15', '07-22', '07-29', '08-12', '09-02', '09-09', '09-16',
-      '09-23', '09-30', '10-07', '10-14', '10-21', '10-28', '11-04', '11-11', '11-18', '11-25',
-      '12-02', '12-09'], 'training', 2027),
-    ...closedWith(2027, {
-      '01-01': 'New Year', '01-02': 'New Year', '01-03': 'New Year',
-      '02-25': 'Ramadan (last two weeks)', '03-04': 'Ramadan (last two weeks)',
-      '03-25': 'Easter', '03-26': 'Good Friday', '03-29': 'Easter Monday',
-      '05-03': 'Early May bank holiday', '05-31': 'Spring bank holiday',
-      '08-19': 'Summer break', '08-26': 'Summer break', '08-30': 'Summer bank holiday',
-      '12-16': 'Christmas break', '12-23': 'Christmas break', '12-25': 'Christmas Day', '12-26': 'Boxing Day',
-      '12-27': 'Christmas Day (bank holiday)', '12-28': 'Boxing Day (bank holiday)', '12-30': 'Christmas break',
-    }),
-    ...md(['02-07', '04-25', '07-04', '08-01', '09-05', '10-03', '11-14'], 'blackbelt', 2027),
-    ...md(['04-29', '08-05', '11-27'], 'grading', 2027),
   },
 };

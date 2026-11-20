@@ -1,6 +1,6 @@
 // Shared by the student app and the coach panel: labels, calendar rendering, helpers.
-import { CALENDAR_2026, CALENDAR_2027 } from './calendar-data.js';
-const BUNDLED = { 2026: CALENDAR_2026, 2027: CALENDAR_2027 };
+import { CALENDAR_2026 } from './calendar-data.js';
+const BUNDLED = { 2026: CALENDAR_2026 };
 
 export const TYPES = {
   training: { label: 'Dojo training', note: 'Thursday classes at the Ilford dojo' },
@@ -293,14 +293,14 @@ export function noticeIsFor(n, p) {
   return true;
 }
 
-// The published calendar for a year, falling back to the bundled 2026 or 2027 calendar.
+// The published calendar for a year, falling back to the bundled 2026 calendar.
 // provisional: for a later year Sensei hasn't published yet, show every Thursday as a class day
 // (the student app uses this, so it isn't empty in January; the Sensei panel shows a draft instead).
 export async function loadCalendar(api, year, provisional = false) {
   let cal = null;
   try { cal = await api.getCalendar(year); } catch (e) { console.warn(e); }
   if (!cal && BUNDLED[+year]) cal = structuredClone(BUNDLED[+year]);
-  if (!cal && provisional && +year > 2027) cal = provisionalCalendar(year);
+  if (!cal && provisional && +year > 2026) cal = provisionalCalendar(year);
   return cal;
 }
 export function provisionalCalendar(year) {
