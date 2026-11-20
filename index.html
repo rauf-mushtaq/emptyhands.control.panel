@@ -453,6 +453,9 @@
   <form method="dialog" class="stack" id="form-paid">
     <p class="eyebrow" id="paid-month-label"></p>
     <h2 id="paid-title">Mark as paid</h2>
+    <fieldset class="seg-field"><legend>How they pay</legend>
+      <div class="chips"><label class="chip"><input type="radio" name="plan" value="monthly" checked> Monthly</label><label class="chip"><input type="radio" name="plan" value="lesson"> Per lesson</label></div>
+    </fieldset>
     <label>Amount paid (£)<input name="amount" type="number" min="0.5" step="0.5" required></label>
     <label>How they paid<select name="method"><option value="cash">Cash</option><option value="bank">Bank transfer</option><option value="paypal">PayPal</option><option value="card">Card</option><option value="other">Other</option></select></label>
     <p class="form-error" hidden></p>

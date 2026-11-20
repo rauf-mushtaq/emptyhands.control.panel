@@ -212,7 +212,8 @@ exports.classReminders = onSchedule({ schedule: '*/5 * * * *', timeZone: 'Europe
       const dayStart = Date.now() - now.minutes * 60e3;
       const paid = new Set(payments.docs.filter(d => d.data().kind === 'monthly' || (d.data().at || 0) >= dayStart).map(d => d.data().uid));
       // Exempt students and those paying by direct debit never get payment reminders.
-      students.forEach(d => { if (!d.data().feesExempt && !d.data().directDebit && !paid.has(d.id)) unpaid.add(d.id); });
+      const paidAny = new Set(payments.docs.map(d => d.data().uid));
+      students.forEach(d => { const s = d.data(); if (!s.feesExempt && !s.directDebit && !paid.has(d.id) && !(s.payPlan === 'lesson' && paidAny.has(d.id))) unpaid.add(d.id); });
     }
     const isTarget = (id, p) => (p.disciplines || []).includes(c.key) && atIlford(p) && wantsReminders(p);
     const students = await db.collection('users').where('role', '==', 'student').get();
@@ -303,9 +304,11 @@ exports.monthlyReminders = onSchedule({ schedule: '0 10 7 * *', timeZone: 'Europ
     db.collection('payments').where('month', '==', month).get(),
   ]);
   const paid = new Set(payments.docs.filter(d => d.data().kind === 'monthly').map(d => d.data().uid));
+  // Students who pay per lesson count as paid once they've paid for any lesson this month.
+  const paidAny = new Set(payments.docs.map(d => d.data().uid));
   for (const doc of students.docs) {
     const s = doc.data();
-    if (s.feesExempt || s.directDebit || paid.has(doc.id) || (s.feeReminded || {})[month]) continue;
+    if (s.feesExempt || s.directDebit || paid.has(doc.id) || (s.payPlan === 'lesson' && paidAny.has(doc.id)) || (s.feeReminded || {})[month]) continue;
     const text = `Hi ${(s.name || '').split(' ')[0]}, just a reminder that your ${monthName} fees (monthly or per lesson) haven’t been paid yet. You can pay in the app under Home → Pay fees, or at the dojo. Thank you!`;
     const now = Date.now();
     await db.collection(`chats/${doc.id}/messages`).add({ text, from: 'coach', kind: 'fees', author: 'EmptyHands Sensei', uid: 'system', createdAt: FieldValue.serverTimestamp() });

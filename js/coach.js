@@ -4,7 +4,7 @@ import { webPushReady, webPushToken } from './webpush.js';
 import {
   $, $$, esc, GRADES, DISCIPLINES, DOJOS, AUDIENCES, CLASS_CHATS, CLASS_JOURNALS, classChatName, renderYear, legendHTML, loadCalendar, calendarYears,
   noticeIsFor, homeworkIsFor, DEFAULT_FEES, FEE_GROUPS, FEE_LEVELS, paypalLink, longDate,
-  TYPES, todayKey, whenText, monthKey, monthName, isMonthly, monthlyFeeFor, onApplication, money, PAY_METHODS, payMethod, shortDate, timeAgo, keyOf, download, toast, busy, messageHTML, wireEdits, editing, licenceHTML, licenceFromForm, senseiKey, threadId, threadParts, senseiList, MEDALS, MEDAL_REASONS, medalHTML,
+  TYPES, countsAsPaid, paysPerLesson, lessonFeeFor, todayKey, whenText, monthKey, monthName, isMonthly, monthlyFeeFor, onApplication, money, PAY_METHODS, payMethod, shortDate, timeAgo, keyOf, download, toast, busy, messageHTML, wireEdits, editing, licenceHTML, licenceFromForm, senseiKey, threadId, threadParts, senseiList, MEDALS, MEDAL_REASONS, medalHTML,
 } from './common.js';
 
 let api;
@@ -377,7 +377,7 @@ const reminded = s => ((s.feeReminded || {})[pay.month]) || 0;
 // Exempt students and those paying by direct debit are never sent payment reminders.
 const noReminders = s => !!(s.feesExempt || s.directDebit);
 function paidRows() {
-  return state.students.filter(s => s.role === 'student').map(s => ({ s, pmt: (pay.list || []).find(x => x.uid === s.id && isMonthly(x)) }));
+  return state.students.filter(s => s.role === 'student').map(s => ({ s, pmt: (pay.list || []).find(x => x.uid === s.id && countsAsPaid(x, s)) }));
 }
 function drawPaid() {
   const rows = paidRows();
@@ -391,7 +391,7 @@ function drawPaid() {
   rows.sort((a, b) => !!a.pmt - !!b.pmt || noReminders(a.s) - noReminders(b.s) || !!a.s.feesExempt - !!b.s.feesExempt || a.s.name.localeCompare(b.s.name));
   $('#paid-rows').innerHTML = rows.map(({ s, pmt }) => `<tr>
     <td data-th="Student"><b>${esc(s.name)}</b>${s.guardian ? `<small>Parent: ${esc(s.guardian)}</small>` : ''}</td>
-    <td data-th="Belt">${GRADES[s.grade] || '—'}${feeLine(s)}</td>
+    <td data-th="Belt">${GRADES[s.grade] || '—'}${paysPerLesson(s) ? '<small>Pays per lesson</small>' : ''}${feeLine(s)}</td>
     <td data-th="Status">${s.feesExempt ? '<span class="tag">Exempt</span>'
       : s.directDebit && !pmt ? '<span class="tag">Direct debit</span> <small>no reminders</small>'
       : pmt ? `<span class="tag tag--ok">Paid</span> ${money(pmt.amount)} · ${payMethod(pmt)} · ${new Date(pmt.at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}`
@@ -457,13 +457,12 @@ $('#paid-rows').addEventListener('click', async e => {
   const s = state.students.find(x => x.id === (d.markpaid || d.remind || d.exempt || d.dd));
   try {
     if (d.markpaid) {
-      const fee = monthlyFeeFor(pay.fees, s) || { name: 'Monthly fee', price: '' };
       const f = $('#form-paid');
       f.reset();
-      f.amount.value = fee.price;
       $('#paid-title').textContent = 'Mark ' + s.name + ' as paid';
-      $('#paid-month-label').textContent = monthName(pay.month) + ' · ' + fee.name;
       $('#paid-dialog').dataset.uid = s.id;
+      f.plan.value = paysPerLesson(s) ? 'lesson' : 'monthly';
+      paidPlan(s);
       showError(f);
       $('#paid-dialog').showModal();
     } else if (d.unpay) {
@@ -484,6 +483,21 @@ $('#paid-rows').addEventListener('click', async e => {
     }
   } catch (err) { toast(errorText(err), 'bad'); }
 });
+// The fee for the plan picked in Mark paid: monthly, or per lesson.
+const planFee = (s, plan) => plan === 'lesson'
+  ? lessonFeeFor(pay.fees, s) || { name: 'Per lesson', price: '' }
+  : monthlyFeeFor(pay.fees, s) || { name: 'Monthly fee', price: '' };
+function paidPlan(s) {
+  const f = $('#form-paid');
+  const fee = planFee(s, f.plan.value);
+  f.amount.value = fee.price;
+  $('#paid-month-label').textContent = monthName(pay.month) + ' · ' + fee.name;
+}
+$('#form-paid').addEventListener('change', e => {
+  if (e.target.name !== 'plan') return;
+  const s = state.students.find(x => x.id === $('#paid-dialog').dataset.uid);
+  if (s) paidPlan(s);
+});
 $('#form-paid').addEventListener('submit', async e => {
   if (e.submitter && e.submitter.value === 'cancel') return;
   e.preventDefault();
@@ -491,10 +505,13 @@ $('#form-paid').addEventListener('submit', async e => {
   const amount = Number(f.amount.value);
   if (!(amount > 0)) return showError(f, 'Please enter the amount they paid.');
   const s = state.students.find(x => x.id === $('#paid-dialog').dataset.uid);
-  const fee = monthlyFeeFor(pay.fees, s) || { name: 'Monthly fee' };
+  const plan = f.plan.value === 'lesson' ? 'lesson' : 'monthly';
+  const fee = planFee(s, plan);
   await busy(f.querySelector('[value=save]'), async () => {
     try {
-      await api.addPayment({ uid: s.id, name: s.name, feeId: fee.id || '', feeName: fee.name, amount, month: pay.month, kind: 'monthly', method: f.method.value, by: savedName() || state.user.email });
+      // Remember whether they pay monthly or per lesson, so next time it's already picked.
+      if ((s.payPlan || 'monthly') !== plan) { await api.saveProfile(s.id, { payPlan: plan }); s.payPlan = plan; }
+      await api.addPayment({ uid: s.id, name: s.name, feeId: fee.id || '', feeName: fee.name, amount, month: pay.month, kind: plan, method: f.method.value, by: savedName() || state.user.email });
       $('#paid-dialog').close();
       toast(`${s.name} marked as paid`);
     } catch (err) { showError(f, errorText(err)); }
@@ -1131,8 +1148,7 @@ function drawHome() {
   const requests = state.requests || [];
   const unreadChats = (state.chats || []).filter(unreadChat);
   const unreadMsgs = unreadChats.reduce((n, c) => n + unreadCount(c), 0);
-  const paid = new Set((state.monthPay || []).filter(isMonthly).map(x => x.uid));
-  const unpaid = students.filter(s => !noReminders(s) && !paid.has(s.id));
+  const unpaid = students.filter(s => !noReminders(s) && !(state.monthPay || []).some(x => x.uid === s.id && countsAsPaid(x, s)));
   const next = nextClassDay();
   const hour = new Date().getHours();
   const name = (savedName() || 'Sensei').split(' ')[0];

@@ -247,6 +247,16 @@ export const PAY_METHODS = { paypal: 'PayPal', card: 'Card', cash: 'Cash', bank:
 export const payMethod = x => ({ apple_pay: 'Apple Pay', google_pay: 'Google Pay' })[x.wallet] || PAY_METHODS[x.method] || '';
 // A payment counts towards the monthly fee if it's for a per-month fee, or marked by Sensei as monthly.
 export const isMonthly = pmt => pmt.kind === 'monthly';
+// Students who pay per lesson (users/{uid}.payPlan 'lesson', set by Sensei when marking a payment):
+// any payment that month counts as paid. Everyone else needs a monthly payment.
+export const paysPerLesson = p => !!p && p.payPlan === 'lesson';
+export const countsAsPaid = (pmt, p) => isMonthly(pmt) || paysPerLesson(p);
+const DROP_IN_PER = ['class', 'lesson', 'session'];
+// The per-lesson fee for a student's classes (Karate per lesson, Yoga drop-in, …).
+export function lessonFeeFor(fees, p) {
+  return fees.find(f => DROP_IN_PER.includes(f.per) && ((p && p.disciplines) || []).includes(f.group))
+    || fees.find(f => DROP_IN_PER.includes(f.per));
+}
 // Brown belt and above pay a monthly fee agreed with Sensei, who sets it per student
 // (users/{uid}.monthlyFee). Until then the student app shows "On application".
 export const onApplication = p => feeLevel(p.grade) === 'application';
