@@ -211,7 +211,8 @@ exports.classReminders = onSchedule({ schedule: '*/5 * * * *', timeZone: 'Europe
       // Paid = this month's monthly fee, or anything paid today (e.g. for today's lesson).
       const dayStart = Date.now() - now.minutes * 60e3;
       const paid = new Set(payments.docs.filter(d => d.data().kind === 'monthly' || (d.data().at || 0) >= dayStart).map(d => d.data().uid));
-      students.forEach(d => { if (!d.data().feesExempt && !paid.has(d.id)) unpaid.add(d.id); });
+      // Exempt students and those paying by direct debit never get payment reminders.
+      students.forEach(d => { if (!d.data().feesExempt && !d.data().directDebit && !paid.has(d.id)) unpaid.add(d.id); });
     }
     const isTarget = (id, p) => (p.disciplines || []).includes(c.key) && atIlford(p) && wantsReminders(p);
     const students = await db.collection('users').where('role', '==', 'student').get();
@@ -304,7 +305,7 @@ exports.monthlyReminders = onSchedule({ schedule: '0 10 7 * *', timeZone: 'Europ
   const paid = new Set(payments.docs.filter(d => d.data().kind === 'monthly').map(d => d.data().uid));
   for (const doc of students.docs) {
     const s = doc.data();
-    if (s.feesExempt || paid.has(doc.id) || (s.feeReminded || {})[month]) continue;
+    if (s.feesExempt || s.directDebit || paid.has(doc.id) || (s.feeReminded || {})[month]) continue;
     const text = `Hi ${(s.name || '').split(' ')[0]}, just a reminder that your ${monthName} fees (monthly or per lesson) haven’t been paid yet. You can pay in the app under Home → Pay fees, or at the dojo. Thank you!`;
     const now = Date.now();
     await db.collection(`chats/${doc.id}/messages`).add({ text, from: 'coach', kind: 'fees', author: 'EmptyHands Sensei', uid: 'system', createdAt: FieldValue.serverTimestamp() });

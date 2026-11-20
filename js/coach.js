@@ -374,27 +374,32 @@ function pickMonth(m) {
 }
 $('#paid-month').addEventListener('change', e => pickMonth(e.target.value));
 const reminded = s => ((s.feeReminded || {})[pay.month]) || 0;
+// Exempt students and those paying by direct debit are never sent payment reminders.
+const noReminders = s => !!(s.feesExempt || s.directDebit);
 function paidRows() {
   return state.students.filter(s => s.role === 'student').map(s => ({ s, pmt: (pay.list || []).find(x => x.uid === s.id && isMonthly(x)) }));
 }
 function drawPaid() {
   const rows = paidRows();
-  const due = rows.filter(r => !r.s.feesExempt);
+  const due = rows.filter(r => !noReminders(r.s));
   const paid = due.filter(r => r.pmt).length;
   const unpaid = due.filter(r => !r.pmt);
-  $('#paid-summary').textContent = due.length ? `· ${paid} of ${due.length} paid` : '';
+  const dd = rows.filter(r => r.s.directDebit && !r.s.feesExempt).length;
+  $('#paid-summary').textContent = [due.length && `· ${paid} of ${due.length} paid`, dd && `· ${dd} on direct debit`].filter(Boolean).join(' ');
   $('#remind-all').disabled = !unpaid.length;
   $('#remind-all').textContent = unpaid.length ? `Remind everyone unpaid (${unpaid.length})` : 'Everyone has paid';
-  rows.sort((a, b) => !!a.pmt - !!b.pmt || !!a.s.feesExempt - !!b.s.feesExempt || a.s.name.localeCompare(b.s.name));
+  rows.sort((a, b) => !!a.pmt - !!b.pmt || noReminders(a.s) - noReminders(b.s) || !!a.s.feesExempt - !!b.s.feesExempt || a.s.name.localeCompare(b.s.name));
   $('#paid-rows').innerHTML = rows.map(({ s, pmt }) => `<tr>
     <td data-th="Student"><b>${esc(s.name)}</b>${s.guardian ? `<small>Parent: ${esc(s.guardian)}</small>` : ''}</td>
     <td data-th="Belt">${GRADES[s.grade] || '—'}${feeLine(s)}</td>
     <td data-th="Status">${s.feesExempt ? '<span class="tag">Exempt</span>'
+      : s.directDebit && !pmt ? '<span class="tag">Direct debit</span> <small>no reminders</small>'
       : pmt ? `<span class="tag tag--ok">Paid</span> ${money(pmt.amount)} · ${payMethod(pmt)} · ${new Date(pmt.at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}`
       : `<span class="tag tag--seal">Unpaid</span>${reminded(s) ? ` <small>reminded ${timeAgo(reminded(s))}</small>` : ''}`}</td>
     <td>${pmt ? `<button class="linkish" data-unpay="${esc(pmt.id)}">Undo</button>`
       : s.feesExempt ? `<button class="linkish" data-exempt="${esc(s.id)}">Not exempt</button>`
-      : `<button class="linkish" data-markpaid="${esc(s.id)}">Mark paid</button> <button class="linkish" data-remind="${esc(s.id)}">Remind</button> <button class="linkish" data-exempt="${esc(s.id)}">Exempt</button>`}</td>
+      : s.directDebit ? `<button class="linkish" data-markpaid="${esc(s.id)}">Mark paid</button> <button class="linkish" data-dd="${esc(s.id)}">Not direct debit</button>`
+      : `<button class="linkish" data-markpaid="${esc(s.id)}">Mark paid</button> <button class="linkish" data-remind="${esc(s.id)}">Remind</button> <button class="linkish" data-dd="${esc(s.id)}">Direct debit</button> <button class="linkish" data-exempt="${esc(s.id)}">Exempt</button>`}</td>
   </tr>`).join('') || '<tr><td colspan="4" class="muted">No accepted students yet.</td></tr>';
   const strays = (pay.list || []).filter(x => !x.uid || !state.students.some(s => s.id === x.uid));
   $('#unmatched').innerHTML = strays.length ? `<h3>Online payments not linked to a student</h3><ul class="plain">${strays.map(x => `<li><span>${money(x.amount)} · ${esc(x.feeName || '')} · ${esc(x.payer || '')}</span><button class="linkish danger" data-unpay="${esc(x.id)}">Remove</button></li>`).join('')}</ul>` : '';
@@ -446,10 +451,10 @@ async function remind(s) {
   s.feeReminded = feeReminded;
 }
 $('#paid-rows').addEventListener('click', async e => {
-  const b = e.target.closest('[data-markpaid], [data-remind], [data-unpay], [data-exempt]');
+  const b = e.target.closest('[data-markpaid], [data-remind], [data-unpay], [data-exempt], [data-dd]');
   if (!b) return;
   const d = b.dataset;
-  const s = state.students.find(x => x.id === (d.markpaid || d.remind || d.exempt));
+  const s = state.students.find(x => x.id === (d.markpaid || d.remind || d.exempt || d.dd));
   try {
     if (d.markpaid) {
       const fee = monthlyFeeFor(pay.fees, s) || { name: 'Monthly fee', price: '' };
@@ -470,6 +475,11 @@ $('#paid-rows').addEventListener('click', async e => {
     } else if (d.exempt) {
       s.feesExempt = !s.feesExempt;
       await api.saveProfile(s.id, { feesExempt: s.feesExempt });
+      drawPaid();
+    } else if (d.dd) {
+      s.directDebit = !s.directDebit;
+      await api.saveProfile(s.id, { directDebit: s.directDebit });
+      toast(s.directDebit ? `${s.name} pays by direct debit: no payment reminders` : `${s.name} is no longer on direct debit`);
       drawPaid();
     }
   } catch (err) { toast(errorText(err), 'bad'); }
@@ -495,7 +505,7 @@ $('#unmatched').addEventListener('click', async e => {
   if (b && confirm('Remove this payment record?')) { try { await api.deletePayment(b.dataset.unpay); } catch (err) { toast(errorText(err), 'bad'); } }
 });
 $('#remind-all').addEventListener('click', e => busy(e.currentTarget, async () => {
-  const unpaid = paidRows().filter(r => !r.s.feesExempt && !r.pmt).map(r => r.s);
+  const unpaid = paidRows().filter(r => !noReminders(r.s) && !r.pmt).map(r => r.s);
   if (!unpaid.length || !confirm(`Send a payment reminder to ${unpaid.length} student${unpaid.length === 1 ? '' : 's'}?`)) return;
   let n = 0;
   for (const s of unpaid) { try { await remind(s); n++; } catch (err) { console.warn(err); } }
@@ -1122,7 +1132,7 @@ function drawHome() {
   const unreadChats = (state.chats || []).filter(unreadChat);
   const unreadMsgs = unreadChats.reduce((n, c) => n + unreadCount(c), 0);
   const paid = new Set((state.monthPay || []).filter(isMonthly).map(x => x.uid));
-  const unpaid = students.filter(s => !s.feesExempt && !paid.has(s.id));
+  const unpaid = students.filter(s => !noReminders(s) && !paid.has(s.id));
   const next = nextClassDay();
   const hour = new Date().getHours();
   const name = (savedName() || 'Sensei').split(' ')[0];
