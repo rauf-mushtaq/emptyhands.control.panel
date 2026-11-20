@@ -704,10 +704,29 @@ body.on-home .app-top { display: none; }
 .explore-card span { position: absolute; left: 0; right: 0; bottom: 0; padding: 40px 16px 16px; background: linear-gradient(transparent, rgba(0, 0, 0, .75)); }
 .explore-card b { display: block; font-size: 1.15rem; }
 .explore-card small { color: rgba(255, 255, 255, .85); }
+/* Kata videos (student app): a row on Home and the Kata videos page; each card opens YouTube */
+.kata-row { display: flex; gap: 12px; overflow-x: auto; scroll-snap-type: x proximity; scroll-padding-inline: 16px; scrollbar-width: none; margin: 0 -16px; padding: 4px 16px 8px; }
+.kata-row::-webkit-scrollbar { display: none; }
+.kata-row .kata-card { flex: 0 0 128px; scroll-snap-align: start; }
+.kata-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 18px 14px; }
+.kata-group { margin-top: 22px; }
+.kata-group h2 { font-size: 1.3rem; margin-bottom: 14px; }
+.kata-card { display: flex; flex-direction: column; color: var(--ink); text-decoration: none; border-radius: 18px; }
+.kata-tile {
+  position: relative; display: grid; place-items: center; aspect-ratio: 4 / 5; margin-bottom: 9px; border-radius: 18px; overflow: hidden;
+  color: var(--paper); background: radial-gradient(120% 90% at 85% 10%, #4a4852 0%, #2c2b31 45%, #1b1a1e 100%); transition: transform .15s ease;
+}
+.kata-jp { font-family: var(--serif); font-size: 1.75rem; font-weight: 500; line-height: 1.05; writing-mode: vertical-rl; letter-spacing: .06em; }
+.kata-play { position: absolute; left: 10px; bottom: 10px; width: 36px; height: 36px; border-radius: 50%; display: grid; place-items: center; background: var(--seal); }
+.kata-play svg { width: 16px; height: 16px; fill: #fff; margin-left: 2px; }
+.kata-card b { font-size: 1rem; line-height: 1.25; }
+.kata-card small { color: var(--ink-3); font-size: .82rem; }
+.kata-card:hover .kata-tile { transform: translateY(-2px); }
+.kata-card:focus-visible { outline: 3px solid var(--seal); outline-offset: 3px; }
 @media (min-width: 900px) {
   .hero { border-radius: 0 0 28px 28px; margin: -24px 0 0; }
   .sheet-body { margin: -34px 0 0; border-radius: 28px; padding: 24px; }
-  .quick-row, .explore-row { margin: 0; padding: 4px 0 8px; scroll-padding-inline: 0; }
+  .quick-row, .explore-row, .kata-row { margin: 0; padding: 4px 0 8px; scroll-padding-inline: 0; }
   .explore-card { flex-basis: 300px; }
 }
 /* Side menu */
